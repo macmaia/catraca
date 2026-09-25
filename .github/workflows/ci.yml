@@ -40,6 +40,22 @@ jobs:
       - name: Stdlib coverage
         run: python -m bench.coverage --fail-under 97 | tee -a "$GITHUB_STEP_SUMMARY"
 
+  lint:
+    name: ruff and mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install "ruff>=0.15,<0.16" "mypy>=1.10,<2"
+      - name: Lint
+        run: ruff check .
+      - name: Types (the package ships py.typed, so this is a promise to users)
+        run: mypy
+
   package:
     name: build and install the package
     runs-on: ubuntu-latest

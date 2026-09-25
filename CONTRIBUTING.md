@@ -19,6 +19,8 @@ python -m bench.report --check
 
 The last one checks the published numbers in [BENCHMARK.md](BENCHMARK.md). The property tests take a fixed seed (`CATRACA_SEED`) and an adjustable count (`CATRACA_N_PROPERTY`).
 
+Before a pull request, also run `ruff check .` and `mypy` (`pip install ruff mypy`). CI runs both, and both must pass. The package ships `py.typed`, so the type hints are a promise to whoever uses it. Design decisions go in [docs/decisions.md](docs/decisions.md), in the same pull request.
+
 ## House style
 
 * Code, comments and messages are in UK English (authorisation, behaviour, licence).
@@ -91,6 +93,8 @@ python -m bench.report --check
 ```
 
 O último confere os números publicados no [BENCHMARK.md](BENCHMARK.md). Os testes de propriedade usam semente fixa (`CATRACA_SEED`) e volume ajustável (`CATRACA_N_PROPERTY`).
+
+Antes de um pull request, rode também `ruff check .` e `mypy` (`pip install ruff mypy`). O CI roda os dois, e os dois precisam passar. O pacote envia `py.typed`, então as anotações de tipo são uma promessa a quem o usa. Decisões de desenho entram no [docs/decisions.md](docs/decisions.md), no mesmo pull request.
 
 ### Estilo da casa
 

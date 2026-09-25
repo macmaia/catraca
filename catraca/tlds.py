@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import FrozenSet, Iterable, Union
+from typing import FrozenSet, Iterable, List, Optional, Union
 
 GENERIC: FrozenSet[str] = frozenset("""
 com net org edu gov mil int arpa info biz name pro aero asia cat coop jobs mobi museum post tel travel xxx
@@ -82,7 +82,7 @@ def load_iana(path: Union[str, Path]) -> FrozenSet[str]:
     return frozenset(out)
 
 
-def main(argv=None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) != 2 or args[0] != "check":
         print("usage: python -m catraca.tlds check tlds-alpha-by-domain.txt", file=sys.stderr)

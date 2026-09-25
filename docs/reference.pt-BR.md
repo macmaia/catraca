@@ -214,6 +214,8 @@ A regra de casamento total é o padrão para todo argumento. A política lista o
 
 O que "casamento total" quer dizer exatamente: o valor tem que aparecer num trecho confiável como tokens inteiros. Caixa e os espaços que as pessoas usam para agrupar dígitos (um IBAN em blocos de quatro) são dobrados. Nada além disso: a pontuação do próprio valor tem que estar lá como foi digitada (`../data` não é `/data`), e um valor que muda com a normalização Unicode NFKC (letras de largura cheia, ligaduras) nunca vira confiável, porque a ferramenta receberia uma string que o usuário não digitou. Dentro de contêineres, chaves de dicionário com cara de dado (dígitos, `@`, pontos) são resolvidas como valores, nomes de campo simples (`status`, `first_name`) contam como estrutura, e uma lista ou dicionário vazio é resolvido como string vazia.
 
+Duas formas derivadas contam como valor do próprio usuário, porque nomeiam a mesma coisa e não acrescentam nada: o host de uma URL que o usuário escreveu (`docs.example.com` a partir de "veja https://docs.example.com/status", o host inteiro e nada mais, domínio pai ou subdomínio não contam), e um telefone com exatamente os mesmos dígitos de um que o usuário escreveu, só com espaço ou pontuação diferente (`21998765432` a partir de "(21) 99876-5432"). Um código de país que o usuário não digitou é outro número, então não vira confiável. Só contam números escritos como telefone (com espaço, parênteses, hífen ou sinal de mais, de 8 a 15 dígitos), então valores, datas e horários nunca casam pelos dígitos.
+
 ## Janela de contexto
 
 O registro acompanha a janela de contexto do modelo, não o turno. Invariante: existe entrada para todo trecho que ainda está no contexto.
@@ -223,6 +225,16 @@ O registro acompanha a janela de contexto do modelo, não o turno. Invariante: e
 * `summarise(text, replaces=[ids])` registra o resumo com a junção da janela inteira e só depois esquece os originais. Resumo de janela contaminada nasce UNTRUSTED.
 * `export_state(key=...)` e `ContextRegistry.from_state(channels, state, key=...)` levam a janela de um processo para outro, por exemplo para guardar junto do checkpoint do seu framework de agentes. O estado contém os textos dos trechos, então guarde como a conversa. Sem a chave ele é recusado, a não ser com `trust_unsigned=True`, porque quem edita o estado poderia rotular um trecho não confiável como confiável.
 
+### Conferindo a invariante com `observe`
+
+O registro não enxerga o contexto do modelo, então manter a invariante é tarefa da integração. `observe(window)` deixa o registro conferir. Passe os textos das mensagens que o modelo tem neste turno (o conteúdo, não um prompt já montado), incluindo as respostas anteriores do próprio modelo, antes de chamar `decide`:
+
+* qualquer trecho de texto que nenhum trecho anotado explica entra como trecho UNTRUSTED no canal reservado `unannotated`, então uma fonte que você esqueceu de anotar contamina a janela em vez de sumir,
+* o `forget` é recusado para um trecho cujo texto ainda está na última janela observada,
+* o resultado lista `unannotated` (o que foi acrescentado) e `absent` (trechos anotados que não estão mais na janela, candidatos a `forget`).
+
+Anote o texto exatamente como o modelo o recebe. Se o seu app reescreve a saída de uma ferramenta antes de o modelo ver, anote a versão reescrita, senão ela aparece como não anotada. Anote também o prompt de sistema, num canal confiável, senão toda janela fica contaminada.
+
 ## Threads e escala
 
 Todo método público do `ContextRegistry` pega um lock, e o portão resolve a chamada inteira mais o resumo da janela num único retrato, então dá para compartilhar entre threads e tarefas asyncio. Use um registro por conversa, nunca um por processo: toda decisão pega o lock do registro, então um registro compartilhado põe todo o tráfego em fila (cerca de 1.200 decisões por segundo num núcleo, nas nossas medições). Sozinho, não é compartilhado entre processos: use `export_state`/`from_state` para o registro e um `PendingBackend` compartilhado para as confirmações (abaixo).
@@ -231,4 +243,4 @@ Código assíncrono deve chamar `await gate.adecide(...)` (ou `acheck`), que rod
 
 Os tokens de confirmação ficam em memória por padrão. Com vários workers, passe `ConfirmationStore(backend=...)` com qualquer coisa que tenha `put(token, record, ttl_seconds)`, `take(token)` e `drop(token)`, em que `take` lê e apaga num passo atômico. No Redis é `SET token record EX ttl`, `GETDEL token` e `DEL token`. O relógio passa a ser o de parede quando há backend.
 
-Numa janela de ~100 mil tokens (40 docs, 565 mil caracteres, `python -m bench.scale`): uns 39 MiB no registro, ~38 ms para anotar cada doc, e `decide` com p50 ≈ 0,3 a 0,35 ms / p99 ≈ 0,6 a 0,8 ms para argumento de destino. Um corpo de texto livre de 400 palavras custa mais, p50 ≈ 4,4 ms / p99 ≈ 6,6 ms, porque cada caractere ganha uma posição no mapa de cobertura. São os números da máquina de referência do [BENCHMARK.md](../BENCHMARK.md), então rode na sua máquina.
+Numa janela de ~100 mil tokens (40 docs, 565 mil caracteres, `python -m bench.scale`): uns 39 MiB no registro, ~38 ms para anotar cada doc, e `decide` com p50 ≈ 0,3 ms / p99 ≈ 0,4 a 0,65 ms para argumento de destino. Um corpo de texto livre de 400 palavras custa mais, p50 ≈ 1,6 ms / p99 ≈ 2,6 ms, sobretudo para extrair destinos dele. Ele só é resolvido caractere por caractere quando a política precisa disso para decidir (um arg que não foi afrouxado, ou uma janela cujo rótulo não pode ir ao chamador). São os números da máquina de referência do [BENCHMARK.md](../BENCHMARK.md), então rode na sua máquina.

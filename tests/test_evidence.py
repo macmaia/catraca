@@ -23,8 +23,8 @@ from catraca import (
     Gate,
     JsonlFileSink,
     MemorySink,
-    RotatingJsonlSink,
     Reason,
+    RotatingJsonlSink,
     Verdict,
 )
 from catraca import evidence as ev
@@ -592,6 +592,7 @@ class RedactionCost(unittest.TestCase):
 
     def test_worst_case_inputs_stay_fast(self):
         import time
+
         from catraca.evidence import MAX_REDACT_CHARS, redact
         attacks = ["1" * 100_000, "1." * 50_000, "1-" * 50_000, "a." * 50_000, "a" * 50_000 + "@",
                    "password" * 10_000, ":" * 50_000, "1 " * 50_000, "f:" * 50_000]
@@ -682,3 +683,8 @@ class EvidenceArgument(unittest.TestCase):
             {"version": 1, "tools": {"send_email": {"emails": ["@acme.com.br"]}}}))
         d = g.decide("send_email", {"to": "ana@acme.com.br"}, caller=ANA)
         self.assertIs(d.reason, Reason.EVIDENCE_UNAVAILABLE)
+
+    def test_a_record_without_seq_fails_verify_instead_of_raising(self):
+        ok, bad, msg = ev.verify([{"prev": ev.GENESIS, "hash": "x"}])
+        self.assertFalse(ok)
+        self.assertIn("seq", msg)

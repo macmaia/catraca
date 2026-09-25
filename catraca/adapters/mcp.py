@@ -64,9 +64,9 @@ def _mcp_error(message: str) -> Exception:
             cls = getattr(importlib.import_module(mod), name)
         except (ImportError, AttributeError):
             continue
-        for build in (lambda: cls(code=DENIED_CODE, message=message),
-                      lambda: cls(DENIED_CODE, message),
-                      lambda: cls(_error_data(message))):
+        for build in (lambda cls=cls: cls(code=DENIED_CODE, message=message),
+                      lambda cls=cls: cls(DENIED_CODE, message),
+                      lambda cls=cls: cls(_error_data(message))):
             try:
                 err = build()
             except (TypeError, AttributeError, ImportError, ValueError):
@@ -101,7 +101,7 @@ def _call_of(ctx: Any) -> Optional[Tuple[str, Dict[str, Any], Dict[str, Any]]]:
 
 def catraca_middleware(gate: Gate, *, caller_for: Callable[[Any], Caller], label_key: Optional[bytes] = None,
                        trust_client: bool = False, max_age: int = 300,
-                       error: Callable[[str], Exception] = _mcp_error):
+                       error: Callable[[str], Exception] = _mcp_error) -> Callable[..., Any]:
     if label_key is not None and len(label_key) < 16:
         raise ValueError("label_key must be at least 16 bytes.")
 
@@ -118,17 +118,19 @@ def catraca_middleware(gate: Gate, *, caller_for: Callable[[Any], Caller], label
                 body = _signed_body(claimed["labels"], args, tool, iat)
             except (TypeError, ValueError):
                 body = None  # not plain JSON, can't have been signed
-            if body is not None:
+            if body is not None and label_key is not None:
                 want = hmac.new(label_key, body, hashlib.sha256).hexdigest()
                 ok = fresh and hmac.compare_digest(want, str(claimed.get("mac", "")))
+        signed: Mapping[str, Any] = claimed["labels"] if ok and isinstance(claimed, Mapping) else {}
         out = {}
         for k in args:
-            level = claimed["labels"].get(k) if ok else None
-            integrity = Integrity[level] if level in Integrity.__members__ else Integrity.UNTRUSTED
+            level = signed.get(k)
+            integrity = Integrity[level] if isinstance(level, str) and level in Integrity.__members__ \
+                else Integrity.UNTRUSTED
             out[k] = EdgeLabel(Label(integrity), "mcp-client-signed" if ok else "mcp-client")
         return out
 
-    async def middleware(ctx: Any, call_next: Callable[[Any], Any]):
+    async def middleware(ctx: Any, call_next: Callable[[Any], Any]) -> Any:
         try:
             call = _call_of(ctx)
         except ValueError as exc:

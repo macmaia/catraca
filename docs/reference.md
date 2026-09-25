@@ -214,6 +214,8 @@ The whole-match rule is the default for every arg. The policy lists the ones tha
 
 What "whole match" means exactly: the value has to appear in one trusted snippet as whole tokens. Case and the spaces people use to group digits (an IBAN in blocks of four) are folded. Nothing else is: the value's own punctuation must be there as typed (`../data` isn't `/data`), and a value that changes under Unicode NFKC folding (full-width letters, ligatures) is never trusted, since the tool would get a string the user didn't type. Inside containers, dict keys that look like data (digits, `@`, dots) are resolved like values, plain field names (`status`, `first_name`) are treated as structure, and an empty list or dict resolves like an empty string.
 
+Two derived forms count as the user's own value, because they name the same thing and add nothing: the host of a URL the user wrote (`docs.example.com` from "check https://docs.example.com/status", the whole host and nothing else, a parent or sub-domain doesn't count), and a phone number with exactly the same digits as one the user wrote, only spaced or punctuated differently (`21998765432` from "(21) 99876-5432"). A country code the user didn't type is another number, so it isn't trusted. Only numbers written the way phones are (spaces, brackets, dashes or a plus, 8 to 15 digits) count, so amounts, dates and times never match by their digits.
+
 ## Context window
 
 The registry follows the model's context window, not the turn. Invariant: there's an entry for every snippet still in the context.
@@ -223,6 +225,16 @@ The registry follows the model's context window, not the turn. Invariant: there'
 * `summarise(text, replaces=[ids])` records the summary with the join of the whole window and only then forgets the originals. A summary of a tainted window is born UNTRUSTED.
 * `export_state(key=...)` and `ContextRegistry.from_state(channels, state, key=...)` move the window between processes, for example to keep it next to your agent framework's checkpoint. The state holds the snippet texts, so store it like the conversation. Without the key it's refused unless you pass `trust_unsigned=True`, because whoever can edit the state could relabel an untrusted snippet as trusted.
 
+### Checking the invariant with `observe`
+
+The registry can't see the model's context, so the invariant is the integration's to keep. `observe(window)` lets the registry check it. Pass the texts of the messages the model has this turn (their contents, not a rendered prompt), including the model's own earlier replies, before you call `decide`:
+
+* any stretch of text no annotated snippet accounts for is added as an UNTRUSTED snippet on the reserved `unannotated` channel, so a source you forgot to annotate taints the window instead of going missing,
+* `forget` is refused for a snippet whose text is still in the last observed window,
+* the result lists `unannotated` (what was added) and `absent` (annotated snippets no longer in the window, candidates for `forget`).
+
+Annotate the text exactly as the model gets it. If your app rewrites a tool's output before the model sees it, annotate the rewritten version, or it shows up as unannotated. Annotate the system prompt too, on a trusted channel, or every window is tainted.
+
 ## Threads and scale
 
 Every public method on `ContextRegistry` takes a lock, and the gate resolves a whole call plus the window summary as one snapshot, so it's safe to share across threads and asyncio tasks. Use one registry per conversation, never one per process: every decision takes the registry's lock, so a shared registry serialises all traffic (about 1,200 decisions a second on one core in our measurements). It isn't shared across processes by itself: use `export_state`/`from_state` for the registry, and a shared `PendingBackend` for confirmations (below).
@@ -231,5 +243,5 @@ Async code should call `await gate.adecide(...)` (or `acheck`), which runs the d
 
 Confirmation tokens live in memory by default. With several workers, pass `ConfirmationStore(backend=...)` with anything that has `put(token, record, ttl_seconds)`, `take(token)` and `drop(token)`, where `take` reads and deletes in one atomic step. With Redis that's `SET token record EX ttl`, `GETDEL token` and `DEL token`. The clock switches to wall time when a backend is given.
 
-On a ~100k-token window (40 docs, 565k chars, `python -m bench.scale`): about 39 MiB held by the registry, ~38 ms to annotate each doc, and `decide` at p50 ≈ 0.3 to 0.35 ms / p99 ≈ 0.6 to 0.8 ms for a destination arg. A 400-word free-text body costs more, p50 ≈ 4.4 ms / p99 ≈ 6.6 ms, since every char gets a coverage slot. These are the reference machine's figures from [BENCHMARK.md](../BENCHMARK.md), so run it on your own box.
+On a ~100k-token window (40 docs, 565k chars, `python -m bench.scale`): about 39 MiB held by the registry, ~38 ms to annotate each doc, and `decide` at p50 ≈ 0.3 ms / p99 ≈ 0.4 to 0.65 ms for a destination arg. A 400-word free-text body costs more, p50 ≈ 1.6 ms / p99 ≈ 2.6 ms, mostly reading destinations out of it. It's only resolved char by char when the policy needs that to decide (an arg that isn't relaxed, or a window whose label may not flow to the caller). These are the reference machine's figures from [BENCHMARK.md](../BENCHMARK.md), so run it on your own box.
 

@@ -69,9 +69,9 @@ import html
 import ipaddress
 import json
 import re
-import unicodedata
 import socket
-from dataclasses import dataclass, field
+import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Tuple, Union
 from urllib.parse import parse_qsl, unquote, urlsplit
@@ -178,7 +178,7 @@ def as_ip(host: str) -> Optional[ipaddress._BaseAddress]:
     return None
 
 
-def _std_ip(text: str):
+def _std_ip(text: str) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
     try:
         return ipaddress.ip_address(text.strip("[]"))
     except ValueError:
@@ -309,9 +309,9 @@ def _scan_text(arg: str, text: str, out: List[Target], depth: int = 0, via: Opti
                 continue
             if not counts_as_host(m.group(1).rstrip(".").split("."), bool(m.group(2)), generic=_TLDS.get()):
                 continue
-            t = _url_target(arg, "https://" + m.group(0), via)
-            if t is not None:
-                add(Target(arg, "host", m.group(0), t.host, scheme=None, port=t.port, ip=t.ip, via=via))
+            ht = _url_target(arg, "https://" + m.group(0), via)
+            if ht is not None:
+                add(Target(arg, "host", m.group(0), ht.host, scheme=None, port=ht.port, ip=ht.ip, via=via))
 
 
 def _texts(value: Any) -> Iterable[str]:

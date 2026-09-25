@@ -6,8 +6,18 @@ import unittest
 
 from catraca import Caller, DeclarativePolicy, Egress, EvidenceLog, Gate, MemorySink, Reason, Verdict
 from catraca.plan import (
-    Plan, PlanError, PlanRunner, PlanTampered, QuarantineError, Schema, SealedPlan, Step,
-    ask, confirm, lit, plan_with, ref,
+    Plan,
+    PlanError,
+    PlanRunner,
+    PlanTampered,
+    QuarantineError,
+    Schema,
+    Step,
+    ask,
+    confirm,
+    lit,
+    plan_with,
+    ref,
 )
 
 KEY = b"s" * 32
@@ -249,7 +259,9 @@ class Building(unittest.TestCase):
                                                                "body": {"ask": "x", "source": {"ref": True}}}}]},
                     {"steps": [{"tool": "read_inbox", "args": {"folder": {"lit": "x"}}},
                                {"tool": "send_email", "args": {"to": {"lit": "a"}, "body": {
-                                   "ask": "x", "source": {"ref": 0}, "schema": {"kind": "code"}}}}]}):
+                                   "ask": "x", "source": {"ref": 0}, "schema": {"kind": "code"}}}}]},
+                    {"steps": [{"tool": 42, "args": {}}]},
+                    {"steps": [{"args": {}}]}):
             with self.assertRaises(PlanError, msg=bad):
                 Plan.from_json(bad, policy=POLICY)
 

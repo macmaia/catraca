@@ -4,15 +4,14 @@ import itertools
 import unittest
 
 from catraca import (
-    DeclarativePolicy,
     CallDenied,
     Caller,
     ChannelConfig,
     ConfirmationRequired,
     ContextRegistry,
     Decision,
+    DeclarativePolicy,
     Egress,
-    Gate,
     PolicyResult,
     Reason,
     Verdict,
@@ -28,8 +27,8 @@ CFG = ChannelConfig.from_dict(
     }
 )
 ANA = Caller(tenant="acme", user="ana")
-from tests.support import policy, tool
 from tests.support import OpenEgressGate as Gate  # noqa: E402  (egress is tested in test_egress)
+from tests.support import policy, tool
 
 POLICY = policy(
     send_email=tool(strict=("to",), loose=("body",), destinations=("smtp",)),
@@ -78,8 +77,8 @@ class Verdicts(unittest.TestCase):
 
     def test_empty_policy_denies_everything(self):
         _, gate = setup(DeclarativePolicy.empty())
-        for tool in ("send_email", "search", "anything"):
-            self.assertIs(gate.decide(tool, {}, caller=ANA).verdict, Verdict.DENY)
+        for name in ("send_email", "search", "anything"):
+            self.assertIs(gate.decide(name, {}, caller=ANA).verdict, Verdict.DENY)
 
     def test_request_shape(self):
         reg, gate = setup()
@@ -248,14 +247,14 @@ class FailClosed(unittest.TestCase):
 
     def test_bad_inputs(self):
         _, gate = setup()
-        for tool, args, caller in [
+        for name, args, caller in [
             ("", {}, ANA),
             (None, {}, ANA),
             ("search", ["not", "a", "mapping"], ANA),
             ("search", {1: "int key"}, ANA),
             ("search", {}, "ana"),
         ]:
-            self.assert_internal_deny(gate.decide(tool, args, caller=caller))
+            self.assert_internal_deny(gate.decide(name, args, caller=caller))
         self.assert_internal_deny(gate.decide("search", {}, caller=ANA, destination=42))
 
     def test_clock_and_id_failures_dont_allow_or_crash(self):

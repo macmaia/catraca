@@ -52,5 +52,33 @@ paths_to_mutate = ["catraca/"]
 tests_dir = ["tests/"]
 also_copy = ["bench/", "examples/", "docs/", "README.md", "README.pt-BR.md", "BENCHMARK.md", "CHANGELOG.md", "NOTICE", "LICENSE", "pyproject.toml", ".github/"]
 
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Goals quoted word for word from AgentDojo, one per line.
+"bench/agentdojo_goals.py" = ["E501"]
+# Test modules set up shared config before importing the helpers that use it.
+"tests/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["catraca"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+check_untyped_defs = true
+no_implicit_optional = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+# The MCP SDK is optional and only imported inside the adapter.
+module = ["mcp", "mcp.*"]
+ignore_missing_imports = true
+
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "raise NotImplementedError"]

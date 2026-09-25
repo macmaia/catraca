@@ -46,11 +46,11 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Pattern, Tuple, Union
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Optional, Pattern, Tuple, Union
 
 from .errors import ConfigError
 from .gate import DecisionRequest, PolicyResult, Reason, Verdict
-from .labels import Integrity, check_scope
+from .labels import Integrity, Label, check_scope
 
 POLICY_VERSION = 1
 _TOOL_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$")
@@ -175,7 +175,25 @@ class DeclarativePolicy:
             return ()
         return tuple(name for name, rule in t.args.items() if rule.relaxed)
 
-    def evaluate(self, request: DecisionRequest, *, constraints_ok=None, caller_ok=None) -> PolicyResult:
+    def settled_by_window(self, tool: str, caller: Any, window: Label) -> FrozenSet[str]:
+        """Relaxed args whose check can't fail whatever part of the window they
+        came from: any integrity is accepted, and even the join of the whole
+        window may flow to this caller. The gate skips resolving them, which is
+        what makes long free-text bodies slow."""
+        t = self._tools.get(tool)
+        if t is None:
+            return frozenset()
+        out = set()
+        for name, rule in t.args.items():
+            if rule.max_integrity is not Integrity.UNTRUSTED:
+                continue
+            scopes = [tpl.format(tenant=caller.tenant, user=caller.user) for tpl in rule.flow_to]
+            if all(window.confidentiality.may_flow_to(s) for s in scopes):
+                out.add(name)
+        return frozenset(out)
+
+    def evaluate(self, request: DecisionRequest, *, constraints_ok: Optional[Callable[..., bool]] = None,
+                 caller_ok: Optional[Callable[..., bool]] = None) -> PolicyResult:
         """``constraints_ok(arg_rule, arg)`` and ``caller_ok(callers, caller)``
         override the value and caller checks. Only the evidence replay uses
         them, since it doesn't have the values or the real user ids."""
@@ -240,23 +258,25 @@ class DeclarativePolicy:
                     out.append(LintWarning(tname, aname, "typed number from any source without both min and max."))
                 if not rule.flow_to:
                     out.append(LintWarning(tname, aname, "confidentiality isn't checked (flow_to is empty)."))
-        for tname in sorted(samples or {}):
-            t = self._tools.get(tname)
-            if t is None:
+        sample_calls = samples or {}
+        for tname in sorted(sample_calls):
+            tp = self._tools.get(tname)
+            if tp is None:
                 out.append(LintWarning(tname, None, "samples given for a tool that isn't in the policy."))
                 continue
             flagged = set()
-            for call in samples[tname]:
+            calls: Iterable[Any] = sample_calls[tname]  # samples come from users, so check each one
+            for call in calls:
                 if not isinstance(call, Mapping):
                     continue
                 for aname, value in call.items():
-                    rule = t.args.get(aname)
-                    if rule is None or not rule.relaxed or aname in flagged:
+                    ar = tp.args.get(aname)
+                    if ar is None or not ar.relaxed or aname in flagged:
                         continue
                     kind = _destination_value(value)
                     if kind:
                         flagged.add(aname)
-                        how = "accepts any integrity" if rule.max_integrity is Integrity.UNTRUSTED \
+                        how = "accepts any integrity" if ar.max_integrity is Integrity.UNTRUSTED \
                             else "allows partial matching"
                         out.append(LintWarning(tname, aname, f"sample value looks like {kind} but the arg {how}."))
         return out

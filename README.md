@@ -22,7 +22,7 @@ In long sessions the residual drifts towards UNTRUSTED. The defaults are strict 
 
 Known failures live in `bench/propagation_cases.json`, and CI publishes the score. Each case says where it comes from: AgentDojo injection goals, the EchoLeak exfil pattern, real obfuscation tricks, or `synthetic` when we wrote it ourselves. On top of that, `bench/agentdojo_cases.json` is generated from the AgentDojo v1 goals (`python -m bench.make_agentdojo_cases`): every goal with a literal attacker value, through four attack templates plus an obfuscated copy, 124 cases in all. Literal matching catches literal values, so that bank's 100% is expected by construction: it checks the machinery, it isn't evidence of protection.
 
-**What the numbers do and don't show.** All three case banks are ours, and none is a run of AgentDojo with a real model (that one's still to be published). A benign bank measures false positives: today about 1 in 4 benign calls in it gets flagged, mostly values the model reformatted or worked out itself. The details, and how to check every figure yourself, are in [BENCHMARK.md](BENCHMARK.md). What's in and out of scope is in the [threat model](docs/threat-model.md).
+**What the numbers do and don't show.** All three case banks are ours, and none is a run of AgentDojo with a real model (that one's still to be published). A benign bank measures false positives: today 6 of its 26 benign calls get flagged, mostly values the model worked out itself. The details, and how to check every figure yourself, are in [BENCHMARK.md](BENCHMARK.md). What's in and out of scope is in the [threat model](docs/threat-model.md).
 
 ## Install
 
@@ -134,6 +134,49 @@ Watch out for defaults and values the model picks itself (`limit=5`, a date work
 
 Any arg that holds a URL, a host or an email address is also checked against the egress rules, and a gate built without `egress=` uses `Egress.strict()`, which allows no destination at all. So an email or HTTP tool is denied with `EGRESS_NOT_ALLOWED` until you list where it may send, as the quick start does with `Egress.from_dict(...)`.
 
+## Running it for real
+
+Three things the library can't do on its own.
+
+**Show the registry the real window every turn (mode B).** Mode B is only as good as the registry's picture of the model's context: a source nobody annotated, or a `forget` for something the model can still see, weakens it without a sound. Before each `decide`, pass the texts of the messages the model has to `registry.observe(window)`, the model's own replies included. Text nobody annotated comes in as UNTRUSTED, and `forget` is refused while the text is still there. Annotate the system prompt on a trusted channel, or every window counts as tainted. Details in the [reference](docs/reference.md).
+
+**Checkpoint the evidence log on a schedule.** The hash chain catches edits in the middle of the log, but records written after the latest checkpoint can be cut off the end without `verify` noticing. So in a real deployment a checkpoint isn't an occasional chore, it's a scheduled job: take one every hour or so, in the process that writes the log, and keep it somewhere the log's host can't rewrite (a bucket with object lock, a ticket, a signed timestamp). The anchor key comes from your secrets manager and never sits next to the log.
+
+```python
+import os
+import threading
+
+from catraca import Caller, ChannelConfig, ContextRegistry, DeclarativePolicy, EvidenceLog, Gate, JsonlFileSink
+from catraca.evidence import read, verify
+
+log = EvidenceLog(JsonlFileSink("decisions.jsonl"))
+anchor_key = os.urandom(32)  # in production, from your secrets manager
+channels = ChannelConfig.from_dict({"version": 1, "channels": {"user": {"integrity": "TRUSTED", "confidentiality": "*"}}})
+gate = Gate(ContextRegistry(channels), DeclarativePolicy.empty(), evidence=log)
+gate.decide("anything", {}, caller=Caller(tenant="acme", user="ana"))  # denied, and written to the log
+
+
+def keep_checkpoints(log, key, every_seconds, store):
+    """Take a checkpoint now, then again every `every_seconds`, and hand each one to `store`."""
+    store(log.checkpoint(key))
+    timer = threading.Timer(every_seconds, keep_checkpoints, (log, key, every_seconds, store))
+    timer.daemon = True
+    timer.start()
+    return timer
+
+
+saved = []  # stands in for the bucket with object lock
+timer = keep_checkpoints(log, anchor_key, 3600, saved.append)
+timer.cancel()
+
+ok, _, _ = verify(read("decisions.jsonl"), anchor=saved[-1], anchor_key=anchor_key)
+print(ok)  # True
+```
+
+From the command line: `catraca-evidence verify decisions.jsonl --anchor checkpoint.json --anchor-key-env CATRACA_ANCHOR_KEY`, with the key in hex.
+
+**Measure coincidences before you turn on confirmation.** When a trusted value also shows up in untrusted content, the default is to deny. `"confirm_on_coincidence": true` asks the person instead, but that only helps if your app shows the prompt, waits for an explicit yes and sends the token back (`approve=` in the decorator). Run with the default first and look at the coincidence rate from `catraca-evidence stats decisions.jsonl`. If it's low, the denials cost little and you can leave it off. If it's high, it's worth building the confirmation step.
+
 ## Check the published numbers yourself
 
 ```
@@ -157,6 +200,7 @@ The details, defaults and every knob are in the [reference](docs/reference.md). 
 * [docs/architecture.md](docs/architecture.md): the pieces and the order the gate checks things in.
 * [docs/threat-model.md](docs/threat-model.md): who we assume is hostile, what each mode stops, what's out of scope.
 * [docs/related-work.md](docs/related-work.md): where the ideas come from (CaMeL, FIDES and others) and what's new here.
+* [docs/decisions.md](docs/decisions.md): the design decisions, why each was taken and what it costs.
 * [docs/audit-and-privacy.md](docs/audit-and-privacy.md): what the decision log holds and proves, keys, retention, LGPD and GDPR.
 * [SECURITY.md](SECURITY.md): how to report a vulnerability privately.
 * [CONTRIBUTING.md](CONTRIBUTING.md): how to run things, house style and how to add a case.

@@ -216,8 +216,8 @@ def ref(step: int, *path: Union[str, int]) -> Ref:
     return Ref(step, tuple(path))
 
 
-def ask(instruction: str, source: Union[Ref, Lit], schema: Schema = Schema.text()) -> Ask:
-    return Ask(instruction, source, schema)
+def ask(instruction: str, source: Union[Ref, Lit], schema: Optional[Schema] = None) -> Ask:
+    return Ask(instruction, source, schema if schema is not None else Schema.text())
 
 
 def confirm(inner: Union[Ref, Ask]) -> Confirm:
@@ -315,7 +315,10 @@ class Plan:
             dest = st.get("destination")
             if dest is not None and not isinstance(dest, str):
                 raise PlanError(f"step {i}: destination must be a string")
-            steps.append(Step(st.get("tool"), {k: _expr_from_json(v) for k, v in args.items()}, dest))
+            tool = st.get("tool")
+            if not isinstance(tool, str):
+                raise PlanError(f"step {i}: tool must be a string")
+            steps.append(Step(tool, {k: _expr_from_json(v) for k, v in args.items()}, dest))
         return cls(steps, policy=policy, request=request)
 
     def to_json(self) -> dict:
@@ -449,7 +452,8 @@ class PlanRunner:
             outputs.append(out)
         return RunResult("done", records, outputs)
 
-    def _resolve(self, i: int, tool: str, args: Mapping[str, Expr], outputs: List[Any]):
+    def _resolve(self, i: int, tool: str, args: Mapping[str, Expr],
+                 outputs: List[Any]) -> Tuple[Dict[str, Any], Dict[str, EdgeLabel]]:
         values: Dict[str, Any] = {}
         edges: Dict[str, EdgeLabel] = {}
         for name, e in sorted(args.items()):

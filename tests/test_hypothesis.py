@@ -11,7 +11,7 @@ try:
     from hypothesis import HealthCheck, given, settings
     from hypothesis import strategies as st
 except ImportError:  # pragma: no cover
-    raise unittest.SkipTest("hypothesis isn't installed")
+    raise unittest.SkipTest("hypothesis isn't installed") from None
 
 from catraca import (
     PUBLIC,
@@ -20,7 +20,6 @@ from catraca import (
     Confidentiality,
     ContextRegistry,
     DeclarativePolicy,
-    Gate,
     Integrity,
     Label,
     Verdict,

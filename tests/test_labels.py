@@ -152,7 +152,7 @@ class Serialisation(unittest.TestCase):
 
     def test_immutable(self):
         label = Label()
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             label.integrity = Integrity.UNTRUSTED  # type: ignore[misc]
 
 

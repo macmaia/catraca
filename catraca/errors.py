@@ -1,5 +1,7 @@
 """Exceptions. A refusal is always an error you can catch, never a quietly degraded value."""
 
+from typing import Any
+
 
 class CatracaError(Exception):
     """Base class for everything this package raises."""
@@ -78,6 +80,6 @@ _HINTS = {
 }
 
 
-def _denied_message(decision) -> str:
+def _denied_message(decision: Any) -> str:
     hint = _HINTS.get(decision.reason.value, "check the decision record for details.")
     return f"call to {decision.tool!r} denied ({decision.reason.value}): {hint}"

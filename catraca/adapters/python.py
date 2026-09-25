@@ -14,18 +14,21 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from ..gate import Caller, Gate
 from ._guard import Approve, aauthorise, authorise
 
 
 def guarded(gate: Gate, *, caller: Callable[[], Caller], tool: Optional[str] = None,
-            destination: Optional[str] = None, approve: Optional[Approve] = None):
-    def wrap(fn: Callable[..., Any]):
+            destination: Optional[str] = None,
+            approve: Optional[Approve] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def wrap(fn: Callable[..., Any]) -> Callable[..., Any]:
         # A functools.partial hides its pre-bound args from the signature, so
         # unwrap it and check the call the underlying function really gets.
-        base, pre_args, pre_kwargs = fn, (), {}
+        base: Any = fn
+        pre_args: Tuple[Any, ...] = ()
+        pre_kwargs: Dict[str, Any] = {}
         while isinstance(base, functools.partial):
             pre_args = tuple(base.args) + pre_args
             pre_kwargs = {**base.keywords, **pre_kwargs}

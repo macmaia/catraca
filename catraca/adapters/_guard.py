@@ -27,7 +27,8 @@ def authorise(gate: Gate, tool: str, args: Mapping[str, Any], *, caller: Caller,
         if approve is None:
             raise ConfirmationRequired(decision)
         if approve(decision) is not True:
-            gate.decline(decision.confirmation_token)
+            if decision.confirmation_token is not None:
+                gate.decline(decision.confirmation_token)
             raise CallDenied(decision)
         second = gate.decide(tool, args, caller=caller, destination=destination, call_id=decision.call_id,
                              confirmation=decision.confirmation_token)
@@ -51,7 +52,8 @@ async def aauthorise(gate: Gate, tool: str, args: Mapping[str, Any], *, caller: 
         if inspect.isawaitable(answer):
             answer = await answer
         if answer is not True:
-            gate.decline(decision.confirmation_token)
+            if decision.confirmation_token is not None:
+                gate.decline(decision.confirmation_token)
             raise CallDenied(decision)
         second = await gate.adecide(tool, args, caller=caller, destination=destination, call_id=decision.call_id,
                                     confirmation=decision.confirmation_token)

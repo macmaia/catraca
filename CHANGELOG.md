@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-## [0.1.0] - not released yet
+## [0.1.0] - 2026-09-25
 
 First public release.
 
@@ -19,7 +19,11 @@ First public release.
 - Mode A: sealed plans, validated at seal and before every step.
 - Docs: architecture, threat model, related work, audit and privacy, reference, security policy, in English and Portuguese.
 - Benchmark: `python -m bench.report --check`, with a hand-written bank, a bank generated from AgentDojo injection goals, a benign bank for false positives, and 95% Wilson intervals.
-- Type hints ship with the package (`py.typed`).
+- `ContextRegistry.observe(window)`: checks the registry against the texts the model really has. Text nobody annotated comes in as UNTRUSTED, and `forget` is refused while the text is still visible, so a missing or false annotation makes mode B stricter instead of weaker.
+- The host of a URL the user wrote, and a phone number with the same digits re-punctuated, count as the user's own value.
+- Relaxed args that can't fail against the whole window's label skip piece-by-piece resolution, which makes long free-text bodies much faster.
+- Type hints ship with the package (`py.typed`), checked with mypy in CI, and the code is linted with ruff.
+- `docs/decisions.md`: the design decisions, why each was taken and what it costs.
 
 ### Not in this release
 - Adapters for Cedar, OPA, LangGraph and AgentDojo, and the AgentDojo run with a real model.

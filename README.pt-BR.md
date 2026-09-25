@@ -22,7 +22,7 @@ Em sessão longa o residual tende a UNTRUSTED. Os padrões são estritos de prop
 
 As falhas conhecidas ficam em `bench/propagation_cases.json`, e o CI publica o placar. Cada caso diz de onde veio: objetivos de injeção do AgentDojo, o padrão de exfiltração do EchoLeak, truques reais de ofuscação, ou `synthetic` quando fomos nós que escrevemos. Além disso, `bench/agentdojo_cases.json` é gerado a partir dos objetivos do AgentDojo v1 (`python -m bench.make_agentdojo_cases`): todo objetivo com valor literal do atacante, passando por quatro modelos de ataque mais uma cópia ofuscada, 124 casos no total. Casamento literal pega valor literal, então os 100% desse banco são esperados por construção: conferem o mecanismo, não são evidência de proteção.
 
-**O que os números mostram e o que não mostram.** Os três bancos de casos são nossos, e nenhum é uma execução do AgentDojo com um modelo de verdade (essa ainda vai ser publicada). Um banco benigno mede falso positivo: hoje cerca de 1 em cada 4 chamadas benignas dele é barrada, na maioria valores que o modelo reformatou ou calculou sozinho. Os detalhes, e como conferir cada número sozinho, estão no [BENCHMARK.md](BENCHMARK.md). O que está dentro e fora do escopo está no [modelo de ameaças](docs/threat-model.md).
+**O que os números mostram e o que não mostram.** Os três bancos de casos são nossos, e nenhum é uma execução do AgentDojo com um modelo de verdade (essa ainda vai ser publicada). Um banco benigno mede falso positivo: hoje 6 das 26 chamadas benignas dele são barradas, na maioria valores que o modelo calculou sozinho. Os detalhes, e como conferir cada número sozinho, estão no [BENCHMARK.md](BENCHMARK.md). O que está dentro e fora do escopo está no [modelo de ameaças](docs/threat-model.md).
 
 ## Instalação
 
@@ -134,6 +134,49 @@ Cuidado com valores padrão e valores que o próprio modelo escolhe (`limit=5`, 
 
 Todo arg que contenha uma URL, um host ou um endereço de email também passa pelas regras de saída, e um portão criado sem `egress=` usa o `Egress.strict()`, que não permite destino nenhum. Então uma ferramenta de email ou HTTP é negada com `EGRESS_NOT_ALLOWED` até você listar para onde ela pode mandar, como o início rápido faz com `Egress.from_dict(...)`.
 
+## Em produção de verdade
+
+Três coisas que a biblioteca não faz sozinha.
+
+**Mostre ao registro a janela real a cada turno (modo B).** O modo B vale o quanto vale a imagem que o registro tem do contexto do modelo: uma fonte que ninguém anotou, ou um `forget` de algo que o modelo ainda vê, enfraquece a proteção sem aviso. Antes de cada `decide`, passe os textos das mensagens que o modelo tem para `registry.observe(window)`, incluindo as respostas do próprio modelo. O texto que ninguém anotou entra como UNTRUSTED, e o `forget` é recusado enquanto o texto ainda está lá. Anote o prompt de sistema num canal confiável, senão toda janela conta como contaminada. Detalhes na [referência](docs/reference.pt-BR.md).
+
+**Tire checkpoints do registro de evidência com agendamento.** A cadeia de hash pega edições no meio do registro, mas os registros escritos depois do último checkpoint podem ser cortados do fim sem o `verify` perceber. Então, numa implantação de verdade, o checkpoint não é tarefa de vez em quando, é um job agendado: tire um a cada hora, mais ou menos, no processo que escreve o registro, e guarde num lugar que a máquina do registro não consiga reescrever (um bucket com object lock, um ticket, um carimbo de tempo assinado). A chave do checkpoint vem do seu cofre de segredos e nunca fica ao lado do registro.
+
+```python
+import os
+import threading
+
+from catraca import Caller, ChannelConfig, ContextRegistry, DeclarativePolicy, EvidenceLog, Gate, JsonlFileSink
+from catraca.evidence import read, verify
+
+log = EvidenceLog(JsonlFileSink("decisions.jsonl"))
+anchor_key = os.urandom(32)  # em produção, do seu cofre de segredos
+channels = ChannelConfig.from_dict({"version": 1, "channels": {"user": {"integrity": "TRUSTED", "confidentiality": "*"}}})
+gate = Gate(ContextRegistry(channels), DeclarativePolicy.empty(), evidence=log)
+gate.decide("anything", {}, caller=Caller(tenant="acme", user="ana"))  # negada, e escrita no registro
+
+
+def keep_checkpoints(log, key, every_seconds, store):
+    """Tira um checkpoint agora e de novo a cada `every_seconds`, e entrega cada um a `store`."""
+    store(log.checkpoint(key))
+    timer = threading.Timer(every_seconds, keep_checkpoints, (log, key, every_seconds, store))
+    timer.daemon = True
+    timer.start()
+    return timer
+
+
+saved = []  # faz o papel do bucket com object lock
+timer = keep_checkpoints(log, anchor_key, 3600, saved.append)
+timer.cancel()
+
+ok, _, _ = verify(read("decisions.jsonl"), anchor=saved[-1], anchor_key=anchor_key)
+print(ok)  # True
+```
+
+Pela linha de comando: `catraca-evidence verify decisions.jsonl --anchor checkpoint.json --anchor-key-env CATRACA_ANCHOR_KEY`, com a chave em hexadecimal.
+
+**Meça as coincidências antes de ligar a confirmação.** Quando um valor confiável também aparece em conteúdo não confiável, o padrão é negar. Com `"confirm_on_coincidence": true` a pessoa é consultada, mas isso só ajuda se o seu app mostrar o pedido, esperar um sim explícito e devolver o token (`approve=` no decorador). Rode primeiro com o padrão e olhe a taxa de coincidência em `catraca-evidence stats decisions.jsonl`. Se for baixa, as negações custam pouco e dá para deixar desligado. Se for alta, vale construir a etapa de confirmação.
+
 ## Confira os números publicados você mesmo
 
 ```
@@ -157,6 +200,7 @@ Os detalhes, os padrões e cada ajuste estão na [referência](docs/reference.pt
 * [docs/architecture.md](docs/architecture.md): as peças e a ordem em que o portão confere as coisas.
 * [docs/threat-model.md](docs/threat-model.md): quem supomos hostil, o que cada modo barra, o que fica fora do escopo.
 * [docs/related-work.md](docs/related-work.md): de onde vêm as ideias (CaMeL, FIDES e outros) e o que é novo aqui.
+* [docs/decisions.md](docs/decisions.md): as decisões de desenho, por que cada uma foi tomada e o que custa.
 * [docs/audit-and-privacy.md](docs/audit-and-privacy.md): o que o registro de decisões guarda e prova, chaves, retenção, LGPD e GDPR.
 * [SECURITY.md](SECURITY.md): como relatar uma vulnerabilidade em privado.
 * [CONTRIBUTING.md](CONTRIBUTING.md#português-brasil): como rodar as coisas, estilo da casa e como acrescentar um caso.

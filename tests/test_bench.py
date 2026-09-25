@@ -17,6 +17,7 @@ class AgentDojoBank(unittest.TestCase):
     def test_generated_file_is_in_sync(self):
         import json
         from pathlib import Path
+
         from bench.make_agentdojo_cases import build
         on_disk = json.loads((Path(__file__).resolve().parent.parent / "bench" / "agentdojo_cases.json").read_text())
         self.assertEqual(on_disk, json.loads(json.dumps(build())),

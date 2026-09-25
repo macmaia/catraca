@@ -60,7 +60,7 @@ import re
 import threading
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple
 from urllib.parse import unquote
 
 from .channels import ChannelConfig
@@ -75,6 +75,8 @@ _FIELD_NAME = re.compile(r"[A-Za-z_]{1,64}")
 """The forget log keeps the latest entries only. The evidence log is the
 durable record, this is for inspecting a live session."""
 SUMMARY_CHANNEL = "summary"
+# Text found by ``observe`` in the model's window that nobody annotated.
+UNANNOTATED_CHANNEL = "unannotated"
 
 
 class Rule(enum.Enum):
@@ -110,6 +112,17 @@ class ForgetRecord:
     snippet_id: str
     turn: int
     reason: str
+
+
+@dataclass(frozen=True)
+class WindowCheck:
+    """What ``observe`` found when it compared the registry with the real window."""
+
+    unannotated: Tuple[str, ...]
+    """Ids of the snippets it added for text nobody annotated. They're UNTRUSTED."""
+    absent: Tuple[str, ...]
+    """Ids of annotated snippets whose text isn't in the window any more.
+    Candidates for ``forget``, if they really left the model's context."""
 
 
 @dataclass(frozen=True)
@@ -168,8 +181,9 @@ class ContextRegistry:
     def __init__(self, channels: ChannelConfig, *, min_length: int = DEFAULT_MIN_LENGTH) -> None:
         if not isinstance(min_length, int) or min_length < 4:
             raise RegistryError("min_length must be an int of at least 4.")
-        if SUMMARY_CHANNEL in channels:
-            raise RegistryError(f"channel name {SUMMARY_CHANNEL!r} is reserved for history summaries.")
+        for reserved in (SUMMARY_CHANNEL, UNANNOTATED_CHANNEL):
+            if reserved in channels:
+                raise RegistryError(f"channel name {reserved!r} is reserved.")
         self._lock = threading.RLock()
         self._channels = channels
         self._k = min_length
@@ -187,6 +201,7 @@ class ContextRegistry:
         self._ids_cache: Dict[int, Tuple[str, ...]] = {}
         self._forgotten: List[ForgetRecord] = []
         self._forgotten_since_summary: Label = BOTTOM
+        self._last_window: Optional[Tuple[str, ...]] = None
 
     # ---- lifecycle -------------------------------------------------------
     @property
@@ -204,7 +219,18 @@ class ContextRegistry:
         """Drop a snippet that has provably left the model's context.
 
         If the content is still there inside a summary, use ``summarise`` instead.
+        After ``observe``, a snippet whose text is still in the observed window
+        can't be forgotten: pass the new window to ``observe`` first.
         """
+        snip = self._snippets.get(snippet_id)
+        if snip is not None and self._last_window is not None and snip.text.strip() \
+                and any(snip.text.strip() in t for t in self._last_window):
+            raise RegistryError(
+                f"snippet {snippet_id!r} is still in the window last passed to observe(), so the model can "
+                "still see it. Call observe() with the current window first, or use summarise().")
+        self._forget(snippet_id, reason=reason)
+
+    def _forget(self, snippet_id: str, *, reason: str) -> None:
         if not isinstance(reason, str) or not reason.strip():
             raise RegistryError("forget needs a reason, it's an audited act.")
         snip = self._snippets.pop(snippet_id, None)
@@ -251,7 +277,7 @@ class ContextRegistry:
         label = self._residual().join(self._forgotten_since_summary)
         summary = self._insert(summary_text, SUMMARY_CHANNEL, f"summary:{','.join(ids)}", label)
         for s in ids:
-            self.forget(s, reason=f"{reason} ({summary.id})")
+            self._forget(s, reason=f"{reason} ({summary.id})")
         self._forgotten_since_summary = BOTTOM
         return summary
 
@@ -303,10 +329,12 @@ class ContextRegistry:
             reg._turn = int(state["turn"])
             for sn in state["snippets"]:
                 channel = sn["channel"]
-                if channel != SUMMARY_CHANNEL and channel not in channels:
+                if channel not in (SUMMARY_CHANNEL, UNANNOTATED_CHANNEL) and channel not in channels:
                     raise RegistryError(f"state names channel {channel!r}, which isn't configured.")
                 label = Label.from_dict(sn["label"])
-                if channel != SUMMARY_CHANNEL:
+                if channel == UNANNOTATED_CHANNEL:
+                    label = label.join(Label(Integrity.UNTRUSTED))
+                if channel not in (SUMMARY_CHANNEL, UNANNOTATED_CHANNEL):
                     # Never looser than the channel is configured today, even if
                     # the config was tightened after the state was saved.
                     label = label.join(channels[channel].label)
@@ -403,10 +431,12 @@ class ContextRegistry:
         cached = self._ids_cache.get(mask)
         if cached is not None:
             return cached
-        out = []
+        out: List[str] = []
         while mask:
             low = mask & -mask
-            out.append(self._sid_at[low.bit_length() - 1])
+            sid = self._sid_at[low.bit_length() - 1]
+            if sid is not None:  # a freed slot never has its bit set, but don't trust that blindly
+                out.append(sid)
             mask ^= low
         result = tuple(sorted(out, key=_id_key))
         if len(self._ids_cache) < 65536:  # bounded, cleared on every write anyway
@@ -420,6 +450,61 @@ class ContextRegistry:
             label = join_all(self._snippets[s].label for s in self._ids(mask))
             self._label_cache[mask] = label
         return label
+
+    @_locked
+    def observe(self, window: Iterable[str]) -> WindowCheck:
+        """Compare the registry with what the model actually has in its context.
+
+        Pass the texts of the messages in the model's window for this turn
+        (the contents, not a rendered prompt template), including the model's
+        own earlier replies. Any stretch of text that no annotated snippet
+        accounts for is added as an UNTRUSTED snippet, so a source the
+        integration forgot to annotate taints the window instead of being
+        silently missing. Snippets whose text no longer appears are reported
+        in ``absent``, and ``forget`` refuses to drop a snippet that is still
+        in this window.
+        """
+        texts = tuple(window)
+        if not all(isinstance(t, str) for t in texts):
+            raise RegistryError("observe() takes the window as an iterable of str.")
+        live = [(sid, sn.text.strip()) for sid, sn in self._snippets.items() if sn.text.strip()]
+        whole = {t.strip() for t in texts}
+        live_texts = {t for _, t in live}
+        # Only texts long enough to mean something are cut out of a message, so
+        # a one-letter snippet can't chop unannotated text into harmless crumbs.
+        known = sorted({t for _, t in live if len(t) >= self._k}, key=len, reverse=True)
+        absent = tuple(sid for sid, t in live if t not in whole and not any(t in m for m in texts))
+        already = {sn.text for sn in self._snippets.values() if sn.channel == UNANNOTATED_CHANNEL}
+        label = Label(Integrity.UNTRUSTED, self._residual().confidentiality)
+        added: List[str] = []
+        for text in texts:
+            if text.strip() in live_texts:
+                continue  # the whole message is one annotated snippet
+            covered = bytearray(len(text))
+            for k in known:
+                i = text.find(k)
+                while i != -1:
+                    covered[i : i + len(k)] = b"\x01" * len(k)
+                    i = text.find(k, i + 1)
+            # What's left, in the original string. Separate stretches are kept
+            # together in one snippet: crumbs can't hide, and joining them can
+            # only make more things match untrusted text, never fewer.
+            pieces, start = [], None
+            for i, c in enumerate(covered):
+                if not c and start is None:
+                    start = i
+                elif c and start is not None:
+                    pieces.append(text[start:i])
+                    start = None
+            if start is not None:
+                pieces.append(text[start:])
+            rest = "\n".join(p.strip() for p in pieces if p.strip())
+            if sum(ch.isalnum() for ch in rest) < MIN_CONSEQUENTIAL_LENGTH or rest in already:
+                continue
+            already.add(rest)
+            added.append(self._insert(rest, UNANNOTATED_CHANNEL, "observe", label).id)
+        self._last_window = texts
+        return WindowCheck(tuple(added), absent)
 
     # ---- queries ---------------------------------------------------------
     @property
@@ -476,7 +561,8 @@ class ContextRegistry:
 
     @_locked
     def resolve_request(
-        self, args: Mapping[str, Any], *, relaxed: Iterable[str] = (), extra: Iterable[str] = ()
+        self, args: Mapping[str, Any], *, relaxed: Iterable[str] = (), extra: Iterable[str] = (),
+        settled: Optional[Callable[[Label], Iterable[str]]] = None,
     ) -> Tuple[Dict[str, Resolution], dict, int, Tuple[Resolution, ...]]:
         """Resolve a whole call against one consistent snapshot of the window.
 
@@ -488,7 +574,15 @@ class ContextRegistry:
         """
         residual = self._residual()
         more = tuple(self._resolve(v, True, residual) for v in extra)
-        return self._resolve_args(args, relaxed), self._summary(), self._turn, more
+        loose = set(relaxed)
+        # Relaxed args the policy says can't fail against the window's own label
+        # get that label straight away. It's the join of everything in the
+        # window, so it's never looser than what resolving would have found.
+        skip = {n for n in (settled(residual) if settled is not None else ()) if n in loose and n in args}
+        out = self._resolve_args({k: v for k, v in args.items() if k not in skip}, relaxed)
+        for name in skip:
+            out[name] = Resolution(residual, Rule.CONSERVATIVE, (), (), 0.0)
+        return out, self._summary(), self._turn, more
 
     def _resolve_args(self, args: Mapping[str, Any], relaxed: Iterable[str]) -> Dict[str, Resolution]:
         loose = set(relaxed)
@@ -681,6 +775,8 @@ class ContextRegistry:
                         return sid
                 elif _token_match(want, view):
                     return sid
+            if not short and (_same_host_as_a_url(want, snip.text) or _same_phone_digits(raw, snip.text)):
+                return sid
         return None
 
     def _segments(self, by_pos: List[int], residual: Label) -> Tuple[Segment, ...]:
@@ -770,6 +866,44 @@ def _groupable(value: str) -> bool:
     """Only mostly-numeric values are matched across grouping spaces."""
     body = value[1:] if value.startswith("+") else value
     return body.isascii() and body.isalnum() and 2 * sum(c.isdigit() for c in body) >= len(body)
+
+
+_HOST_VALUE = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
+_URL_HOST = re.compile(r"(?i)\b(?:https?|wss?|ftp)://(?:[^\s/\\@<>\"']*@)?([^\s/:?#<>\"'\\]+)")
+# No dots, slashes or colons: those make amounts, dates and times, not phone numbers.
+_PHONE_VALUE = re.compile(r"\+?[\d\s()-]+")
+_PHONE_SPAN = re.compile(r"(?<![\w+.,/:])\+?\(?\d[\d\s()-]{6,}\d(?![\w.,/:])")
+_DATE_LIKE = re.compile(r"\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}-\d{4}")
+
+
+def _same_host_as_a_url(want: str, text: str) -> bool:
+    """The value is a bare host, and the user wrote a URL on exactly that host
+    ("check https://docs.example.com/status" then ``docs.example.com``). It's the
+    destination the user named, so nothing is added. The host must match whole,
+    a parent or child domain doesn't count."""
+    if not _HOST_VALUE.fullmatch(want):
+        return False
+    return any(m.group(1).casefold().rstrip(".") == want for m in _URL_HOST.finditer(text))
+
+
+def _same_phone_digits(raw: str, text: str) -> bool:
+    """The value is a phone number with the same digits, in the same order, as
+    one the user wrote, only with different spacing or punctuation
+    ("(21) 99876-5432" then ``21998765432``). A country code the user didn't
+    type is a different number and doesn't match."""
+    if not _PHONE_VALUE.fullmatch(raw.strip()):
+        return False
+    digits = "".join(c for c in raw if c.isdigit())
+    if not 8 <= len(digits) <= 15 or _DATE_LIKE.search(raw):
+        return False
+    plus = raw.strip().startswith("+")
+    for m in _PHONE_SPAN.finditer(text):
+        span = m.group(0)
+        if _DATE_LIKE.search(span) or not any(c in span for c in " ()-+"):
+            continue  # a bare run of digits is a number, not a phone someone wrote out
+        if "".join(c for c in span if c.isdigit()) == digits and span.startswith("+") == plus:
+            return True
+    return False
 
 
 def _check_key(key: bytes) -> None:

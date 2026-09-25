@@ -22,7 +22,8 @@ def policy(cls=DeclarativePolicy, **tools):
     return cls.from_dict(spec(**tools))
 
 
-from catraca import Egress, Gate as _Gate
+from catraca import Egress
+from catraca import Gate as _Gate
 
 OPEN_EGRESS = Egress.from_dict({"version": 1, "default": {"hosts": ["*"], "emails": ["*"]}})
 """Any host or address is allowed, but provenance is still checked (TRUSTED).

@@ -1,7 +1,6 @@
 """Shared setup for the runnable examples: one support-desk scenario."""
 
-from catraca import (Caller, ChannelConfig, ContextRegistry, DeclarativePolicy, Egress, EvidenceLog, Gate,
-                     MemorySink)
+from catraca import Caller, ChannelConfig, ContextRegistry, DeclarativePolicy, Egress, EvidenceLog, Gate, MemorySink
 
 CHANNELS = ChannelConfig.from_dict({"version": 1, "channels": {
     "user": {"integrity": "TRUSTED", "confidentiality": "*"},

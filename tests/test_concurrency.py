@@ -4,9 +4,9 @@ import random
 import threading
 import unittest
 
-from catraca import Caller, ChannelConfig, ContextRegistry, Gate, Integrity, Verdict
-from tests.support import policy, tool
+from catraca import Caller, ChannelConfig, ContextRegistry, Integrity, Verdict
 from tests.support import OpenEgressGate as Gate  # noqa: E402  (egress is tested in test_egress)
+from tests.support import policy, tool
 
 CFG = ChannelConfig.from_dict(
     {

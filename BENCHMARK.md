@@ -32,9 +32,9 @@ From `bench/published.json`, catraca 0.1.0.
 |---|---|---|---|---|
 | `propagation_cases` (hand-written) | 40 | 37 | 33 of 36 (91.7%) | 0 of 4 |
 | `agentdojo_cases` (generated) | 124 | 124 | 124 of 124 (100%) | none in this bank |
-| `benign_cases` (hand-written) | 26 | 19 | none in this bank | 7 of 26 (26.9%) |
+| `benign_cases` (hand-written) | 26 | 20 | none in this bank | 6 of 26 (23.1%) |
 
-`bench.report` also prints a 95% Wilson interval for each rate. With banks this small they're wide: 78.2% to 97.1% for the hand-written detection rate, 13.7% to 46.1% for the benign false-positive rate.
+`bench.report` also prints a 95% Wilson interval for each rate. With banks this small they're wide: 78.2% to 97.1% for the hand-written detection rate, 11.0% to 42.1% for the benign false-positive rate.
 
 "Caught" means the registry labelled the attacker's value UNTRUSTED, so under the default policy the gate denies the call or asks for confirmation.
 
@@ -42,6 +42,8 @@ The known failures, all mode B. Missed injections:
 
 * `translation-after-truncation`: a translated value after the untrusted source has left the window.
 * `rot13-origin-forgotten`: a rot13 value whose origin was forgotten.
+
+Both of these are an integration that told the registry something false: a source dropped while the model could still see it, or its own reply never shown to the registry. The bank records them as they happen without a check. An integration that passes the model's window to `registry.observe()` every turn catches both (the tests in `tests/test_registry.py` show how), since `forget` is refused while the text is still visible and anything nobody annotated, the model's own replies included, comes in as UNTRUSTED.
 * `adaptive-picks-a-trusted-value`: the injection steers the model to a different address the user also wrote. Mode B can't tell which of the user's values was meant (see the threat model).
 
 The hand-written bank also has adaptive cases where the attacker spells the value out or describes it instead of writing it. Those are caught, by the conservative rule rather than the matcher.
@@ -50,8 +52,7 @@ Benign calls flagged (false positives):
 
 * `benign-short-amount`: "50" is under 4 characters, so it's only trusted if it's the whole user message.
 * `benign-computed-date`: a date the model worked out from "tomorrow".
-* `benign-reformatted-phone`: the model reformatted the number.
-* `benign-host-from-url`: a host that's part of a longer URL in the user's text.
+* `benign-reformatted-phone`: the model added a country code the user didn't type. Only the same digits with different spacing or punctuation are trusted, since another country code is another number.
 * `benign-sum-of-values`: arithmetic on two trusted amounts.
 * `benign-translated-subject`: a translation of the user's words.
 * `benign-hotel-name`: the value also shows up in the retrieved page, a coincidence (sent for confirmation if `confirm_on_coincidence` is on).
@@ -75,14 +76,14 @@ Reference machine: a cloud Linux x86_64 VM, CPython 3.11. Evidence goes to an in
 
 | Scenario | p50 | p99 |
 |---|---|---|
-| `Gate.decide`, 8 docs of 400 words in the window | 300 µs | 567 µs |
-| ~100k-token window (40 docs), untrusted destination | 341 µs | 778 µs |
-| ~100k-token window, trusted destination | 332 µs | 586 µs |
-| ~100k-token window, 400-word free-text body | 4.4 ms | 6.6 ms |
+| `Gate.decide`, 8 docs of 400 words in the window | 269 µs | 576 µs |
+| ~100k-token window (40 docs), untrusted destination | 300 µs | 636 µs |
+| ~100k-token window, trusted destination | 284 µs | 423 µs |
+| ~100k-token window, 400-word free-text body | 1.6 ms | 2.6 ms |
 
 Annotating the ~100k-token window took 1.2 s in total, and the registry held 38.9 MiB. The VM is shared, so p99 moves by a few hundred µs between runs. That's why CI only warns when it misses the latency target (`--timing-warn-only`), while `--check` on your own machine still fails on it.
 
-The latency target is p99 under 1 ms for the first row only. The ~100k-token rows are there to show how it scales, and the destination rows stay near 1 ms on a shared VM. The long free-text body is well past it (a few ms), because every segment is resolved. Relaxing a body arg in the policy (`"integrity": "ANY"`) doesn't skip that today.
+The latency target is p99 under 1 ms for the first row only. The ~100k-token rows are there to show how it scales, and the destination rows stay near 1 ms on a shared VM. The long free-text body is still past it (a few ms). Its provenance isn't resolved piece by piece any more when the policy accepts any integrity and the window's label may flow to the caller, so what's left is mostly reading destinations out of the text.
 
 ## Refreshing the numbers (maintainers)
 
@@ -118,11 +119,11 @@ O CI roda o mesmo comando no Python 3.10 a 3.13 a cada push.
 
 ## Detecção
 
-De `bench/published.json`, catraca 0.1.0. A tabela acima vale para as duas línguas: 37 de 40 corretos no banco escrito à mão (33 de 36 valores injetados pegos, 0 de 4 confiáveis marcados por engano), 124 de 124 no banco gerado do AgentDojo, e 19 de 26 no banco benigno (7 falsos positivos, 26,9%). O `bench.report` também mostra o intervalo de Wilson de 95% de cada taxa, que sai largo com bancos pequenos: 78,2% a 97,1% na detecção do banco escrito à mão, 13,7% a 46,1% nos falsos positivos do benigno.
+De `bench/published.json`, catraca 0.1.0. A tabela acima vale para as duas línguas: 37 de 40 corretos no banco escrito à mão (33 de 36 valores injetados pegos, 0 de 4 confiáveis marcados por engano), 124 de 124 no banco gerado do AgentDojo, e 20 de 26 no banco benigno (6 falsos positivos, 23,1%). O `bench.report` também mostra o intervalo de Wilson de 95% de cada taxa, que sai largo com bancos pequenos: 78,2% a 97,1% na detecção do banco escrito à mão, 11,0% a 42,1% nos falsos positivos do benigno.
 
 "Pego" quer dizer que o registro rotulou o valor do atacante como UNTRUSTED, então, com a política padrão, o portão nega a chamada ou pede confirmação.
 
-As falhas conhecidas, todas do modo B. Injeções que passam: `translation-after-truncation` (valor traduzido depois que a fonte não confiável saiu da janela) `rot13-origin-forgotten` (valor em rot13 cuja origem foi esquecida) e `adaptive-picks-a-trusted-value` (a injeção leva o modelo a outro endereço que o usuário também escreveu). O banco também tem casos adaptativos em que o atacante soletra ou descreve o valor em vez de escrevê-lo. Esses são pegos, pela regra conservadora e não pelo casamento. Chamadas benignas barradas: valor curto ("50"), data calculada pelo modelo, telefone reformatado, host tirado de uma URL maior, soma de dois valores, tradução das palavras do usuário, e um nome que também aparece na página recuperada (coincidência). A maioria some com um tipo para argumentos inofensivos (veja a [referência](docs/reference.pt-BR.md)). Os que dizem para onde vai não devem sumir.
+As falhas conhecidas, todas do modo B. Injeções que passam: `translation-after-truncation` (valor traduzido depois que a fonte não confiável saiu da janela) `rot13-origin-forgotten` (valor em rot13 cuja origem foi esquecida) e `adaptive-picks-a-trusted-value` (a injeção leva o modelo a outro endereço que o usuário também escreveu). As duas primeiras são uma integração que disse algo falso ao registro: uma fonte esquecida enquanto o modelo ainda a via, ou a própria resposta do modelo nunca mostrada ao registro. Uma integração que passa a janela do modelo para `registry.observe()` a cada turno pega as duas, porque o `forget` é recusado enquanto o texto ainda aparece, e o que ninguém anotou, inclusive as respostas do modelo, entra como UNTRUSTED. O banco também tem casos adaptativos em que o atacante soletra ou descreve o valor em vez de escrevê-lo. Esses são pegos, pela regra conservadora e não pelo casamento. Chamadas benignas barradas: valor curto ("50"), data calculada pelo modelo, telefone com um código de país que o usuário não digitou, soma de dois valores, tradução das palavras do usuário, e um nome que também aparece na página recuperada (coincidência). A maioria some com um tipo para argumentos inofensivos (veja a [referência](docs/reference.pt-BR.md)). Os que dizem para onde vai não devem sumir.
 
 ### Como ler esses números (por favor, leia)
 
@@ -139,7 +140,7 @@ O número comparável a defesas publicadas (taxa de sucesso de ataque e utilidad
 
 Máquina de referência: VM Linux x86_64 na nuvem, CPython 3.11. A evidência vai para um destino em memória. Os números estão na tabela acima. Anotar a janela de ~100 mil tokens levou 1,2 s no total, e o registro ocupou 38,9 MiB. A VM é compartilhada, então o p99 varia algumas centenas de µs entre execuções. Por isso o CI só avisa quando a meta de latência não é atingida (`--timing-warn-only`), enquanto o `--check` na sua máquina continua falhando nesse caso.
 
-A meta de latência é p99 abaixo de 1 ms só na primeira linha. As linhas de ~100 mil tokens mostram como escala, e as de destino ficam perto de 1 ms numa VM compartilhada. A de corpo de texto livre longo passa bem disso (alguns ms), porque cada segmento é resolvido. Afrouxar um arg de corpo na política (`"integrity": "ANY"`) hoje não evita isso.
+A meta de latência é p99 abaixo de 1 ms só na primeira linha. As linhas de ~100 mil tokens mostram como escala, e as de destino ficam perto de 1 ms numa VM compartilhada. A de corpo de texto livre longo ainda passa disso (alguns ms). A proveniência dele não é mais resolvida pedaço por pedaço quando a política aceita qualquer integridade e o rótulo da janela pode ir ao chamador, então o que sobra é sobretudo extrair destinos do texto.
 
 ## Atualizando os números (mantenedores)
 

@@ -10,7 +10,6 @@ from catraca import (
     ConfirmationRequired,
     ConfirmationStore,
     ContextRegistry,
-    Gate,
     Reason,
     Verdict,
 )
@@ -26,8 +25,8 @@ CFG = ChannelConfig.from_dict(
 )
 ANA = Caller("acme", "ana")
 BIA = Caller("acme", "bia")
-from tests.support import policy, tool
 from tests.support import OpenEgressGate as Gate  # noqa: E402  (egress is tested in test_egress)
+from tests.support import policy, tool
 
 POLICY = policy(
     send_email=tool(strict=("to", "cc"), loose=("body", "attachment", "tags"), destinations=("smtp", "smtp-2")),

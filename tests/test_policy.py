@@ -4,7 +4,7 @@ import json
 import unittest
 from pathlib import Path
 
-from catraca import Caller, ChannelConfig, ConfigError, Egress, ContextRegistry, DeclarativePolicy, Gate, Reason, Verdict
+from catraca import Caller, ChannelConfig, ConfigError, ContextRegistry, DeclarativePolicy, Egress, Reason, Verdict
 from tests.support import OpenEgressGate as Gate  # noqa: E402  (egress is tested in test_egress)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -334,3 +334,43 @@ class TypedArgs(unittest.TestCase):
         msgs = [w.message for w in self.pol(type="integer", min=1).lint()]
         self.assertTrue(any("min and max" in m for m in msgs))
         self.assertFalse(any("min and max" in m for m in [w.message for w in self.pol(type="integer", min=1, max=9).lint()]))
+
+
+class SettledByWindow(unittest.TestCase):
+    """A relaxed arg that can't fail against the whole window isn't resolved piece by piece."""
+
+    def test_settled_body_gets_the_window_label(self):
+        g = gate(P(send_email=email()), USER_ASKS, DOC_SAYS)
+        d = g.decide("send_email", {"to": "ana@acme.com.br", "body": "a long summary " * 50}, caller=ANA)
+        self.assertIs(d.verdict, Verdict.ALLOW)
+        body = [a for a in d.request.args if a.name == "body"][0]
+        self.assertEqual(body.resolution.rule.value, "CONSERVATIVE")
+        self.assertEqual(body.resolution.label, g._registry.residual_label())
+
+    def test_same_verdicts_with_and_without_the_shortcut(self):
+        class NoShortcut:
+            def __init__(self, inner):
+                self.inner = inner
+
+            def relaxed_args(self, tool):
+                return self.inner.relaxed_args(tool)
+
+            def evaluate(self, request):
+                return self.inner.evaluate(request)
+
+        windows = [(USER_ASKS, DOC_SAYS), (USER_ASKS, ("ana's salary review notes", "private")),
+                   (USER_ASKS, ("acme pipeline for Q3", "crm"))]
+        bodies = ["the summary you asked for", "salary review notes", "acme pipeline for Q3", "hi " * 300]
+        for window in windows:
+            for body in bodies:
+                call = {"to": "ana@acme.com.br", "body": body}
+                fast = gate(P(send_email=email()), *window).decide("send_email", call, caller=ANA)
+                g = gate(P(send_email=email()), *window)
+                g._policy = NoShortcut(g._policy)
+                full = g.decide("send_email", call, caller=ANA)
+                self.assertEqual((fast.verdict, fast.reason), (full.verdict, full.reason), (window, body))
+
+    def test_strict_args_are_never_settled(self):
+        g = gate(P(send_email=email()), USER_ASKS, DOC_SAYS)
+        d = g.decide("send_email", {"to": "thief@evil.io", "body": "hi"}, caller=ANA)
+        self.assertIs(d.reason, Reason.UNTRUSTED_ARGUMENT)

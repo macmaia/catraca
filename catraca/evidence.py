@@ -57,8 +57,8 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple, Union
+from urllib.parse import urlsplit
 
 EVIDENCE_VERSION = 1
 GENESIS = "0" * 64
@@ -103,7 +103,7 @@ def _cnpj_ok(d: str) -> bool:
         return False
     for n in (12, 13):
         weights = list(range(n - 7, 1, -1)) + list(range(9, 1, -1))
-        total = sum(int(x) * w for x, w in zip(d[:n], weights))
+        total = sum(int(x) * w for x, w in zip(d[:n], weights, strict=True))
         check = 0 if total % 11 < 2 else 11 - total % 11
         if check != int(d[n]):
             return False
@@ -713,6 +713,8 @@ def _verify_chain(records: List[Mapping[str, Any]]) -> Tuple[bool, Optional[int]
     for rec in records:
         n += 1
         seq = rec.get("seq")
+        if not isinstance(seq, int) or isinstance(seq, bool):
+            return False, None, f"record {n} has no valid seq"
         if expected_seq is None:
             expected_seq = seq
             prev = rec.get("prev", GENESIS) if seq != 1 else GENESIS
@@ -738,13 +740,15 @@ def _coincidence_driven(rec: Mapping[str, Any]) -> bool:
 
 
 def stats(records: Iterable[Mapping[str, Any]]) -> dict:
-    """Counts per verdict and reason, plus the coincidence rate from spec v2.
+    """Counts per verdict and reason, plus the coincidence rate.
 
     ``coincidence_rate`` is the share of all decisions where a denial or a
     confirmation was caused only by coincidence. If it's high, the policy's
     written wrong, not the world. It's a product metric, not a security one.
     """
-    verdicts, reasons, tools = Counter(), Counter(), Counter()
+    verdicts: Counter[str] = Counter()
+    reasons: Counter[str] = Counter()
+    tools: Counter[str] = Counter()
     total = coincidence = 0
     for rec in records:
         total += 1
@@ -778,7 +782,7 @@ class _Redacted:
         return "<redacted>"
 
 
-def replay(record: Mapping[str, Any], policy: Any):
+def replay(record: Mapping[str, Any], policy: Any) -> Any:
     """Re-run the policy stage from a record alone.
 
     Rebuilds the decision request from the recorded labels, rules and flags,

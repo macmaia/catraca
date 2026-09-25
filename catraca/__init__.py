@@ -11,8 +11,8 @@ See docs/architecture.md and docs/threat-model.md in the repo.
 from .channels import Channel, ChannelConfig
 from .confirmations import ConfirmationStore, MemoryBackend, PendingBackend
 from .egress import Egress, EgressRules, Target
-from .evidence import EvidenceLog, JsonlFileSink, MemorySink, RotatingJsonlSink
 from .errors import CallDenied, CatracaError, ConfigError, ConfirmationRequired, LabelError, RegistryError
+from .evidence import EvidenceLog, JsonlFileSink, MemorySink, RotatingJsonlSink
 from .gate import (
     ArgProvenance,
     Caller,
@@ -26,8 +26,8 @@ from .gate import (
     Reason,
     Verdict,
 )
-from .policy import ArgRule, DeclarativePolicy, LintWarning, ToolPolicy
 from .labels import PUBLIC, Confidentiality, Integrity, Label
+from .policy import ArgRule, DeclarativePolicy, LintWarning, ToolPolicy
 from .registry import ContextRegistry, Resolution, Rule
 
 __version__ = "0.1.0"

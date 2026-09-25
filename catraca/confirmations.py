@@ -23,6 +23,7 @@ import secrets
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Sized
 from dataclasses import dataclass
 from typing import Any, Callable, FrozenSet, Mapping, Optional, Protocol, Tuple
 
@@ -147,7 +148,7 @@ class ConfirmationStore:
         self._new_token = new_token
 
     def __len__(self) -> int:
-        return len(self._backend) if hasattr(self._backend, "__len__") else 0
+        return len(self._backend) if isinstance(self._backend, Sized) else 0
 
     def __bool__(self) -> bool:
         # An empty store is still a store. Without this, ``store or default``

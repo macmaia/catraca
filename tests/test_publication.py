@@ -16,6 +16,12 @@ except ImportError:  # Python 3.10, the packaging job still checks the metadata
 ROOT = Path(__file__).resolve().parent.parent
 
 
+DOCS = [
+    "README.md", "README.pt-BR.md", "BENCHMARK.md", "SECURITY.md", "CHANGELOG.md", "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md", "docs/architecture.md", "docs/threat-model.md", "docs/reference.md",
+    "docs/reference.pt-BR.md", "docs/audit-and-privacy.md", "docs/related-work.md", "docs/decisions.md",
+]
+
 class PublishedNumbers(unittest.TestCase):
     def setUp(self):
         self.published = json.loads((ROOT / "bench" / "published.json").read_text(encoding="utf-8"))
@@ -82,7 +88,7 @@ class Docs(unittest.TestCase):
         self.assertLess(readme_pt.index("## Leia antes"), readme_pt.index("## Início rápido"))
 
     def test_relative_links_resolve(self):
-        for doc in ["README.md", "BENCHMARK.md", "SECURITY.md", "docs/architecture.md", "docs/threat-model.md", "README.pt-BR.md", "docs/reference.md", "docs/reference.pt-BR.md", "CONTRIBUTING.md", "docs/audit-and-privacy.md", "docs/related-work.md"]:
+        for doc in DOCS:
             path = ROOT / doc
             for target in re.findall(r"\]\(([^)#]+?)(?:#[^)]*)?\)", path.read_text(encoding="utf-8")):
                 if target.startswith("http"):
@@ -91,7 +97,7 @@ class Docs(unittest.TestCase):
 
     def test_no_dash_or_semicolon_in_prose(self):
         # House style for the published docs.
-        for doc in ["README.md", "BENCHMARK.md", "SECURITY.md", "CHANGELOG.md", "docs/architecture.md", "docs/threat-model.md", "README.pt-BR.md", "docs/reference.md", "docs/reference.pt-BR.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "docs/audit-and-privacy.md", "docs/related-work.md"]:
+        for doc in DOCS:
             text = (ROOT / doc).read_text(encoding="utf-8")
             prose = re.sub(r"```.*?```", "", text, flags=re.S)
             prose = re.sub(r"`[^`]*`", "", prose)

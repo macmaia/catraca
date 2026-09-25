@@ -39,14 +39,13 @@ import time
 import uuid
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Protocol, Tuple, runtime_checkable
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Mapping, Optional, Protocol, Tuple, runtime_checkable
 
-from .egress import Egress, Target
 from .confirmations import DEFAULT_MAX_PENDING, DEFAULT_TTL_SECONDS, Binding, ConfirmationStore, fingerprint
+from .egress import Egress, Target
 from .errors import CallDenied, ConfirmationRequired
 from .labels import Integrity, Label
 from .registry import ContextRegistry, Resolution, Rule
-
 
 _NO_EVIDENCE = object()
 
@@ -329,7 +328,8 @@ class Gate:
         with self._counts_lock:
             return dict(self._counts)
 
-    def _decide(self, tool, args, *, caller, destination, call_id, confirmation, labels=None) -> Decision:
+    def _decide(self, tool: Any, args: Any, *, caller: Any, destination: Any, call_id: Any,
+                confirmation: Any, labels: Any = None) -> Decision:
         started = self._now()
         cid = str(call_id) if call_id is not None else None
         tool_name = tool if isinstance(tool, str) else repr(tool)
@@ -365,13 +365,13 @@ class Gate:
                 detail=type(exc).__name__,
             )
 
-    async def adecide(self, tool: str, args: Mapping[str, Any], **kw) -> Decision:
+    async def adecide(self, tool: str, args: Mapping[str, Any], **kw: Any) -> Decision:
         """``decide`` for async code. Runs in a worker thread, because resolving
         long args is CPU work and holds the registry lock, and that shouldn't
         stall the event loop."""
         return await asyncio.to_thread(self.decide, tool, args, **kw)
 
-    async def acheck(self, tool: str, args: Mapping[str, Any], **kw) -> Decision:
+    async def acheck(self, tool: str, args: Mapping[str, Any], **kw: Any) -> Decision:
         """``check`` for async code, see ``adecide``."""
         return await asyncio.to_thread(self.check, tool, args, **kw)
 
@@ -379,7 +379,7 @@ class Gate:
         """The person said no. Drops the pending confirmation."""
         return self._confirmations.decline(token)
 
-    def check(self, tool: str, args: Mapping[str, Any], **kw) -> Decision:
+    def check(self, tool: str, args: Mapping[str, Any], **kw: Any) -> Decision:
         """Like ``decide`` but raises on anything other than ALLOW."""
         decision = self.decide(tool, args, **kw)
         if decision.verdict is Verdict.ALLOW:
@@ -408,13 +408,17 @@ class Gate:
         # One snapshot for args, window summary and turn, so a concurrent
         # annotate can't land between them.
         targets = self._egress.targets(tool, args, destination)
+        settled_fn = getattr(self._policy, "settled_by_window", None)
+        settled: Optional[Callable[[Label], Iterable[str]]] = None
+        if callable(settled_fn):
+            settled = lambda window_label: settled_fn(tool, caller, window_label)  # noqa: E731
         resolved, window, turn, target_res = self._registry.resolve_request(
-            args, relaxed=relaxed, extra=[t.raw for t in targets])
+            args, relaxed=relaxed, extra=[t.raw for t in targets], settled=settled)
         provenance = tuple(
             ArgProvenance(name, args[name], name in cons, resolved[name]) for name in sorted(args)
         )
         return DecisionRequest(cid, turn, caller, tool, provenance, destination, window,
-                               targets=tuple(zip(targets, target_res)))
+                               targets=tuple(zip(targets, target_res, strict=True)))
 
     @staticmethod
     def _binding(call_id: str, tool: Any, caller: Any, destination: Any, args: Any) -> Binding:
@@ -426,7 +430,8 @@ class Gate:
         return Decision(cid if cid is not None else "unknown", tool, Verdict.DENY, reason, rule_id,
                         self._elapsed(started))
 
-    def _build_edge_request(self, cid, tool, args, caller, destination, labels, cons) -> DecisionRequest:
+    def _build_edge_request(self, cid: Any, tool: Any, args: Any, caller: Any, destination: Any,
+                            labels: Any, cons: Any) -> DecisionRequest:
         if not isinstance(labels, Mapping) or set(labels) != set(args) \
                 or not all(isinstance(v, EdgeLabel) for v in labels.values()):
             raise TypeError("mode A needs an EdgeLabel for every arg, and nothing else")
@@ -462,7 +467,8 @@ class Gate:
             return dataclasses.replace(d, flagged=tuple(a for a in result.arguments if isinstance(a, str)))
 
         reason, rule_id = result.reason, result.rule_id
-        conf, names = None, frozenset()
+        conf: Optional[Tuple[Confirmation, ...]] = None
+        names: FrozenSet[str] = frozenset()
         if result.verdict is Verdict.REQUIRE_CONFIRMATION:
             conf = self._confirmation(request, result)
             if conf is None:
@@ -484,7 +490,7 @@ class Gate:
                 )
                 return Decision(
                     request.call_id, request.tool, Verdict.REQUIRE_CONFIRMATION, reason,
-                    rule_id, self._elapsed(started), conf, request, confirmation_token=token,
+                    rule_id, self._elapsed(started), conf or (), request, confirmation_token=token,
                 )
             if not names <= granted:
                 # Something now needs confirming that the person never saw.

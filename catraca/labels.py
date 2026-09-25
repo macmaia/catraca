@@ -64,10 +64,11 @@ class Confidentiality:
     scopes: Optional[FrozenSet[str]] = None
 
     def __post_init__(self) -> None:
-        if self.scopes is not None:
-            if not isinstance(self.scopes, frozenset):
-                object.__setattr__(self, "scopes", frozenset(self.scopes))
-            for s in self.scopes:
+        scopes: Any = self.scopes  # callers may pass any iterable, whatever the annotation says
+        if scopes is not None:
+            scopes = frozenset(scopes)
+            object.__setattr__(self, "scopes", scopes)
+            for s in scopes:
                 check_scope(s)
 
     @classmethod

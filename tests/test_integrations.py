@@ -1,13 +1,21 @@
 """Adapters: the decorator and the MCP middleware."""
 
 import asyncio
-import sys
 import types
 import unittest
 
 from catraca import (
-    CallDenied, Caller, ChannelConfig, ConfirmationRequired, ContextRegistry, DeclarativePolicy, Egress,
-    EvidenceLog, Gate, MemorySink, Reason,
+    CallDenied,
+    Caller,
+    ChannelConfig,
+    ConfirmationRequired,
+    ContextRegistry,
+    DeclarativePolicy,
+    Egress,
+    EvidenceLog,
+    Gate,
+    MemorySink,
+    Reason,
 )
 from catraca.adapters.mcp import META_KEY, catraca_middleware, sign_labels
 from catraca.adapters.python import guarded
@@ -152,6 +160,7 @@ class Mcp(unittest.TestCase):
 
     def test_error_is_the_sdks_own_when_installed(self):
         import importlib.util
+
         from catraca.adapters.mcp import DENIED_CODE, _mcp_error
         err = _mcp_error("catraca: NOPE")
         self.assertIn("NOPE", str(err) + str(getattr(getattr(err, "error", None), "message", "")))

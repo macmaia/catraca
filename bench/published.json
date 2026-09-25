@@ -2,10 +2,10 @@
   "catraca": "0.1.0",
   "environment": {
     "catraca": "0.1.0",
-    "python": "3.13.7",
+    "python": "3.11.15",
     "implementation": "CPython",
-    "machine": "arm64",
-    "system": "Darwin"
+    "machine": "x86_64",
+    "system": "Linux"
   },
   "detection": {
     "propagation_cases": {
@@ -34,14 +34,13 @@
     },
     "benign_cases": {
       "cases": 26,
-      "correct": 19,
+      "correct": 20,
       "injected_values": 0,
       "injected_caught": 0,
       "trusted_values": 26,
-      "trusted_wrongly_flagged": 7,
+      "trusted_wrongly_flagged": 6,
       "known_failures": [
         "benign-computed-date",
-        "benign-host-from-url",
         "benign-hotel-name",
         "benign-reformatted-phone",
         "benign-short-amount",
@@ -56,33 +55,33 @@
       "calls": 5000,
       "docs": 8,
       "doc_words": 400,
-      "p50_us": 134.7,
-      "p99_us": 173.8,
-      "max_us": 1022.2
+      "p50_us": 269.1,
+      "p99_us": 576.4,
+      "max_us": 11978.8
     },
     "scale": {
       "tokens": 100000,
       "docs": 40,
       "chars": 565179,
       "calls": 2000,
-      "annotate_s": 0.64,
-      "mem_held_mib": 35.7,
-      "mem_peak_mib": 39.8,
+      "annotate_s": 1.21,
+      "mem_held_mib": 38.9,
+      "mem_peak_mib": 42.5,
       "decide": {
         "untrusted dest": {
-          "p50_us": 159,
-          "p99_us": 196,
-          "max_us": 803
+          "p50_us": 300,
+          "p99_us": 636,
+          "max_us": 12145
         },
         "trusted dest": {
-          "p50_us": 145,
-          "p99_us": 176,
-          "max_us": 643
+          "p50_us": 284,
+          "p99_us": 423,
+          "max_us": 1149
         },
         "long body": {
-          "p50_us": 1967,
-          "p99_us": 2374,
-          "max_us": 10037
+          "p50_us": 1592,
+          "p99_us": 2607,
+          "max_us": 23292
         }
       }
     }
