@@ -26,7 +26,7 @@ CI runs the same command on Python 3.10 to 3.13 on every push.
 
 ## Detection
 
-From `bench/published.json`, catraca 0.1.0.dev0.
+From `bench/published.json`, catraca 0.1.0.
 
 | Bank | Cases | Correct | Injected values caught | Trusted values wrongly flagged |
 |---|---|---|---|---|
@@ -118,7 +118,7 @@ O CI roda o mesmo comando no Python 3.10 a 3.13 a cada push.
 
 ## Detecção
 
-De `bench/published.json`, catraca 0.1.0.dev0. A tabela acima vale para as duas línguas: 37 de 40 corretos no banco escrito à mão (33 de 36 valores injetados pegos, 0 de 4 confiáveis marcados por engano), 124 de 124 no banco gerado do AgentDojo, e 19 de 26 no banco benigno (7 falsos positivos, 26,9%). O `bench.report` também mostra o intervalo de Wilson de 95% de cada taxa, que sai largo com bancos pequenos: 78,2% a 97,1% na detecção do banco escrito à mão, 13,7% a 46,1% nos falsos positivos do benigno.
+De `bench/published.json`, catraca 0.1.0. A tabela acima vale para as duas línguas: 37 de 40 corretos no banco escrito à mão (33 de 36 valores injetados pegos, 0 de 4 confiáveis marcados por engano), 124 de 124 no banco gerado do AgentDojo, e 19 de 26 no banco benigno (7 falsos positivos, 26,9%). O `bench.report` também mostra o intervalo de Wilson de 95% de cada taxa, que sai largo com bancos pequenos: 78,2% a 97,1% na detecção do banco escrito à mão, 13,7% a 46,1% nos falsos positivos do benigno.
 
 "Pego" quer dizer que o registro rotulou o valor do atacante como UNTRUSTED, então, com a política padrão, o portão nega a chamada ou pede confirmação.
 

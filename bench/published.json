@@ -1,11 +1,11 @@
 {
-  "catraca": "0.1.0.dev0",
+  "catraca": "0.1.0",
   "environment": {
-    "catraca": "0.1.0.dev0",
-    "python": "3.11.15",
+    "catraca": "0.1.0",
+    "python": "3.13.7",
     "implementation": "CPython",
-    "machine": "x86_64",
-    "system": "Linux"
+    "machine": "arm64",
+    "system": "Darwin"
   },
   "detection": {
     "propagation_cases": {
@@ -56,33 +56,33 @@
       "calls": 5000,
       "docs": 8,
       "doc_words": 400,
-      "p50_us": 299.6,
-      "p99_us": 566.7,
-      "max_us": 18114.5
+      "p50_us": 134.7,
+      "p99_us": 173.8,
+      "max_us": 1022.2
     },
     "scale": {
       "tokens": 100000,
       "docs": 40,
       "chars": 565179,
       "calls": 2000,
-      "annotate_s": 1.22,
-      "mem_held_mib": 38.9,
-      "mem_peak_mib": 42.5,
+      "annotate_s": 0.64,
+      "mem_held_mib": 35.7,
+      "mem_peak_mib": 39.8,
       "decide": {
         "untrusted dest": {
-          "p50_us": 341,
-          "p99_us": 778,
-          "max_us": 9769
+          "p50_us": 159,
+          "p99_us": 196,
+          "max_us": 803
         },
         "trusted dest": {
-          "p50_us": 332,
-          "p99_us": 586,
-          "max_us": 1452
+          "p50_us": 145,
+          "p99_us": 176,
+          "max_us": 643
         },
         "long body": {
-          "p50_us": 4361,
-          "p99_us": 6601,
-          "max_us": 43574
+          "p50_us": 1967,
+          "p99_us": 2374,
+          "max_us": 10037
         }
       }
     }
