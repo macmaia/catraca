@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "description": "Egress rules for the support-desk example. Tools not listed get the strict default: no destinations at all.",
+  "tools": {
+    "send_email": {
+      "emails": ["@acme.com.br"],
+      "hosts": ["acme.com.br", "*.acme.com.br"]
+    }
+  }
+}

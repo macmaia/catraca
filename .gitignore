@@ -1,0 +1,28 @@
+# Local notes and office files
+PENDING.md
+*.docx
+*.docx#
+~$*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Test and benchmark output
+.coverage
+htmlcov/
+mutants/
+score.json
+report.txt
+results/
+*.jsonl
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/

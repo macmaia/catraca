@@ -1,0 +1,6 @@
+# Tools for the release build, kept separate so they can be pinned with hashes.
+# Before the first release, replace these with exact versions and hashes:
+#   pip-compile --generate-hashes .github/release-requirements.txt
+# and install with --require-hashes.
+build>=1.2,<2
+twine>=6,<7

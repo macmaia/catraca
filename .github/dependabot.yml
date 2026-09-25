@@ -1,0 +1,8 @@
+# Keeps the actions in ci.yml and release.yml
+# up to date. Pin them to commit SHAs before the first release.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

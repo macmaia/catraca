@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "catraca"
+version = "0.1.0.dev0"
+description = "Provenance-aware authorisation for agent tool calls."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.10"
+authors = [{name = "Maria Alice Maia"}]
+keywords = ["llm", "agents", "prompt-injection", "authorisation", "provenance", "security", "mcp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2,<2"]
+
+[project.urls]
+Homepage = "https://github.com/macmaia/catraca"
+Source = "https://github.com/macmaia/catraca"
+Issues = "https://github.com/macmaia/catraca/issues"
+Changelog = "https://github.com/macmaia/catraca/blob/main/CHANGELOG.md"
+
+[project.scripts]
+catraca-evidence = "catraca.evidence:main"
+
+[tool.setuptools.packages.find]
+include = ["catraca", "catraca.*"]
+
+[tool.setuptools.package-data]
+catraca = ["py.typed"]
+
+[tool.mutmut]
+# mutmut 3 runs pytest in a copy of the tree, so the tests need the
+# benchmark, examples and docs they read copied over too.
+paths_to_mutate = ["catraca/"]
+tests_dir = ["tests/"]
+also_copy = ["bench/", "examples/", "docs/", "README.md", "README.pt-BR.md", "BENCHMARK.md", "CHANGELOG.md", "NOTICE", "LICENSE", "pyproject.toml", ".github/"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "raise NotImplementedError"]

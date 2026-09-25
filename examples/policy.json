@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "description": "Reference policy for the support-desk example.",
+  "tools": {
+    "send_email": {
+      "callers": {"tenants": ["acme"], "users": "*"},
+      "destinations": ["smtp"],
+      "args": {
+        "to": {},
+        "subject": {"integrity": "ANY"},
+        "body": {"integrity": "ANY"}
+      }
+    },
+    "search_kb": {
+      "callers": {"tenants": ["acme"], "users": "*"},
+      "args": {
+        "query": {"integrity": "ANY"}
+      }
+    }
+  }
+}

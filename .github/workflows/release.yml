@@ -1,0 +1,78 @@
+# Publishes to PyPI when a tag like v0.1.0 is pushed.
+# Uses PyPI trusted publishing, so there's no token to leak. Set-up steps are
+# in CONTRIBUTING.md. Goes to TestPyPI first, then waits for approval on the
+# "pypi" environment before the real upload.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Tag points at a commit on main
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "tag ${GITHUB_REF_NAME} isn't on main, refusing to release"; exit 1; }
+      - name: Every action is pinned to a commit
+        run: |
+          # A moving tag or branch in a job that can publish is a supply-chain risk.
+          if grep -nE '^\s*-?\s*uses:\s*[^ ]+@' .github/workflows/*.yml | grep -vE '@[0-9a-f]{40}(\s|$)'; then
+            echo "pin the actions above to full commit SHAs (e.g. with pinact or Dependabot) before releasing"; exit 1
+          fi
+      - name: Tag matches the package version
+        run: |
+          v=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} but pyproject says $v"; exit 1; }
+          test "$(python -c 'import catraca;print(catraca.__version__)')" = "$v" || { echo "catraca.__version__ out of sync"; exit 1; }
+      - name: Repo link is set
+        run: python -c "import tomllib,sys;u=tomllib.load(open('pyproject.toml','rb'))['project'].get('urls') or {};sys.exit(0 if u.get('Source') else 'add [project.urls] Source before releasing')"
+      - name: Changelog has this version
+        run: grep -q "^## \[${GITHUB_REF_NAME#v}\] - [0-9]" CHANGELOG.md || { echo "CHANGELOG.md needs a dated entry for ${GITHUB_REF_NAME#v}"; exit 1; }
+      - run: python -m unittest discover -s tests -t .
+      - run: python -m bench.report --check --quick --timing-warn-only
+      - run: pip install --require-hashes -r .github/release-requirements.lock && python -m build && twine check --strict dist/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    needs: testpypi
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

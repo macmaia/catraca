@@ -1,0 +1,139 @@
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"  # weekly: the IANA TLD check, and everything else against fresh dependency releases
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core (no deps), py${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Tests with nothing installed
+        run: python -m unittest discover -s tests -t . -v
+      - name: AgentDojo bank is in sync with its source
+        run: python -m bench.make_agentdojo_cases && git diff --exit-code bench/agentdojo_cases.json
+      - name: Propagation bank
+        run: python -m bench.propagation --quiet
+      - name: Published benchmark still matches
+        run: |
+          python -m bench.report --check --quick --timing-warn-only | tee report.txt
+          { echo '### Benchmark'; echo '```'; cat report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Examples with no extra deps
+        run: |
+          python -m examples.python_decorator
+          python -m examples.sealed_plan
+      - name: Stdlib coverage
+        run: python -m bench.coverage --fail-under 97 | tee -a "$GITHUB_STEP_SUMMARY"
+
+  package:
+    name: build and install the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - name: Wheel has every subpackage and the licence
+        run: |
+          python -m zipfile -l dist/*.whl | tee wheel.txt
+          grep -q "catraca/adapters/mcp.py" wheel.txt
+          grep -q "catraca/py.typed" wheel.txt
+          grep -q "licenses/LICENSE" wheel.txt
+      - name: Installed wheel works outside the source tree
+        run: |
+          python -m venv /tmp/v && /tmp/v/bin/pip install dist/*.whl
+          cd /tmp && /tmp/v/bin/python -c "import catraca, catraca.adapters.mcp; print(catraca.__version__)"
+          /tmp/v/bin/catraca-evidence --help
+
+  properties:
+    name: Hypothesis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install hypothesis
+      - name: Property tests, and fail if they got skipped
+        run: |
+          python -m tests.run_strict tests.test_hypothesis
+
+  coverage:
+    name: coverage.py
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install coverage hypothesis
+      - run: coverage run --branch --source=catraca -m unittest discover -s tests -t .
+      - run: coverage report --show-missing --fail-under=95 | tee -a "$GITHUB_STEP_SUMMARY"
+
+  mutation:
+    name: mutation testing
+    runs-on: ubuntu-latest
+    # Non-blocking until the first real run sets a baseline score.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install "mutmut>=3,<4" "pytest>=8,<9"
+      - run: mutmut run --max-children 2 || true  # surviving mutants are reported below, not a failure yet
+      - run: mutmut results | tee -a "$GITHUB_STEP_SUMMARY"
+
+  tlds:
+    name: Curated TLD list against IANA
+    # Downloads from IANA, so it runs on the weekly schedule or by hand, not on every push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: curl -sSf -o tlds.txt https://data.iana.org/TLD/tlds-alpha-by-domain.txt
+      - run: python -m catraca.tlds check tlds.txt | tee -a "$GITHUB_STEP_SUMMARY"
+
+  mcp:
+    name: MCP middleware against the real SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install "mcp>=1.2,<2"
+      - run: python -m examples.mcp_server
