@@ -31,7 +31,7 @@ pip install catraca                  # core, no dependencies
 pip install "catraca[mcp]"           # to run the MCP example against the real SDK
 ```
 
-Until the first release is on PyPI, install from a clone with `pip install .`. That builds the package with setuptools 77 or newer, which pip downloads. Offline, use the clone directly: `PYTHONPATH=. python your_script.py`.
+To install from source, use `pip install .` in a clone. That builds the package with setuptools 77 or newer, which pip downloads. Offline, use the clone directly: `PYTHONPATH=. python your_script.py`.
 
 ## Quick start
 

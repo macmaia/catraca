@@ -31,7 +31,7 @@ pip install catraca                  # núcleo, sem dependências
 pip install "catraca[mcp]"           # para rodar o exemplo MCP com o SDK de verdade
 ```
 
-Até a primeira versão sair no PyPI, instale a partir de um clone com `pip install .`. Isso monta o pacote com o setuptools 77 ou mais novo, que o pip baixa. Sem rede, use o clone direto: `PYTHONPATH=. python seu_script.py`.
+Para instalar a partir do código, use `pip install .` num clone. Isso monta o pacote com o setuptools 77 ou mais novo, que o pip baixa. Sem rede, use o clone direto: `PYTHONPATH=. python seu_script.py`.
 
 ## Início rápido
 
