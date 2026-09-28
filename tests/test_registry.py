@@ -601,31 +601,35 @@ class PhoneRuleIsForPhones(unittest.TestCase):
         self.assertIs(r.resolve("evil.example").label.integrity, U)
 
 
-class GroupedRunsAreWhole(unittest.TestCase):
-    """Only the whole grouped number is trusted, never a few blocks out of it."""
+class GroupedNumbersMatchLikeTokens(unittest.TestCase):
+    """A number written in blocks is trusted without its spaces exactly when the
+    same blocks would be trusted with them: fusing gives nothing extra."""
 
-    IBAN = "pay GB29 NWBK 6016 1331 9268 19 today"
-
-    def test_the_whole_number_matches(self):
-        from catraca.registry import _token_match
-        self.assertTrue(_token_match("GB29NWBK60161331926819", self.IBAN))
-        self.assertTrue(_token_match("GB29NWBK60161331926819", "IBAN GB29 NWBK 6016 1331 9268 19"))
-
-    def test_blocks_from_the_start_middle_or_end_dont(self):
-        from catraca.registry import _token_match
-        for piece in ("GB29NWBK", "NWBK60161331", "60161331926819"):
-            self.assertFalse(_token_match(piece, self.IBAN), piece)
-        self.assertFalse(_token_match("12345678", "card 1234 5678 9012"))
-        self.assertFalse(_token_match("56789012", "card 1234 5678 9012"))
-
-    def test_punctuation_or_words_close_a_run(self):
-        from catraca.registry import _token_match
-        self.assertTrue(_token_match("56789012", "codes 1234, 5678 9012"))
-        self.assertTrue(_token_match("22223333", "4111 1111 then 2222 3333"))
-
-    def test_registry_level(self):
+    def trusted(self, text, value):
         r = fresh()
-        r.annotate("Pay GB29 NWBK 6016 1331 9268 19", "user")
+        r.annotate(text, "user")
         r.annotate("some page", "kb")
-        self.assertIs(r.resolve("GB29NWBK60161331926819").label.integrity, T)
-        self.assertIs(r.resolve("NWBK60161331").label.integrity, U)
+        return r.resolve(value).label.integrity is T
+
+    def test_fused_and_spaced_agree(self):
+        text = "pay GB29 NWBK 6016 1331 9268 19 today"
+        for spaced in ("GB29 NWBK 6016 1331 9268 19", "6016 1331 9268 19", "NWBK 6016 1331"):
+            self.assertEqual(self.trusted(text, spaced), self.trusted(text, spaced.replace(" ", "")), spaced)
+
+    def test_whole_numbers(self):
+        for text, value in [("Pay GB29 NWBK 6016 1331 9268 19, please", "GB29NWBK60161331926819"),
+                            ("FR76 3000 6000 0112 3456 7890 189", "FR7630006000011234567890189"),
+                            ("card 4111 1111 1111 1111", "4111111111111111"),
+                            ("call (+44) 20 7946 0958", "+442079460958")]:
+            self.assertTrue(self.trusted(text, value), value)
+
+    def test_separators_and_glued_prefixes_end_a_run(self):
+        for text, value in [("1234 5678, 9012 3456", "1234567890123456"),
+                            ("Pay 4111 1111; 1111 1111", "4111111111111111"),
+                            ("IBANs: GB29 NWBK 6016 1331 9268 19, DE89 3704 0044 0532 0130 00",
+                             "GB29NWBK60161331926819DE89370400440532013000"),
+                            ("id:4111 1111 1111 1111", "4111111111111111")]:
+            self.assertFalse(self.trusted(text, value), value)
+
+    def test_words_dont_fuse_into_a_mostly_numeric_value(self):
+        self.assertFalse(self.trusted("bob at example com", "bobatexamplecom"))

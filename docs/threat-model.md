@@ -41,7 +41,7 @@ The tools an agent can call, and what those calls can reach: money, messages, fi
 Provenance answers "did this value come from the user?", not "did the user want it here?". If the user's own text holds several candidates of the same kind (two addresses, two IBANs, an amount and a ticket number), injected text can steer the model to the wrong one and every arg still looks trusted. There's no complete fix inside mode B. What helps:
 
 * mode A, where the plan binds each value to its arg before untrusted content is read.
-* keeping a trusted value to a single token (catraca only trusts whole tokens, so a piece of an IBAN or a reference number isn't trusted on its own).
+* writing a value as a single token. catraca only trusts whole tokens, so a piece inside a token isn't trusted ("0400" out of "DE8937040044..."). A number written in blocks is different: each block, and each run of blocks, is itself whole tokens of the user's text, so injected text can steer the model to part of it, with or without the spaces.
 * planned: asking for confirmation when the trusted text holds more than one candidate of the arg's type.
 
 ## An attacker who knows the matcher
@@ -107,7 +107,7 @@ As ferramentas que o agente pode chamar e o que essas chamadas alcançam: dinhei
 A proveniência responde "esse valor veio do usuário?", não "o usuário queria esse valor aqui?". Se o próprio texto do usuário tem vários candidatos do mesmo tipo (dois endereços, dois IBANs, um valor e um número de ticket), um texto injetado pode levar o modelo ao errado e todo arg continua parecendo confiável. Não há correção completa dentro do modo B. O que ajuda:
 
 * o modo A, em que o plano prende cada valor ao seu arg antes de ler conteúdo não confiável.
-* confiança só em tokens inteiros (a catraca só confia em tokens inteiros, então um pedaço de IBAN ou de número de referência não vira confiável sozinho).
+* escrever o valor como um token só. A catraca só confia em tokens inteiros, então um pedaço de dentro de um token não vira confiável ("0400" tirado de "DE8937040044..."). Um número escrito em blocos é diferente: cada bloco, e cada sequência de blocos, também é feito de tokens inteiros do texto do usuário, então o texto injetado pode levar o modelo a usar parte dele, com ou sem os espaços.
 * previsto: pedir confirmação quando o texto confiável tiver mais de um candidato do tipo do arg.
 
 ## Um atacante que conhece o casamento

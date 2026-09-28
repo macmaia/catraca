@@ -818,6 +818,11 @@ def _light_views(text: str) -> List[str]:
 
 
 def _token_match(want: str, text: str) -> bool:
+    """Whole tokens, or one whole grouped number (see ``_grouped_match``)."""
+    return _plain_token_match(want, text) or _grouped_match(want, text)
+
+
+def _plain_token_match(want: str, text: str) -> bool:
     """``want`` appears in ``text`` as a run of whole tokens.
 
     Tokens are split on whitespace. The run's outer edges may carry
@@ -836,30 +841,6 @@ def _token_match(want: str, text: str) -> bool:
                 return True
         elif run[0].lstrip(_EDGE) == parts[0] and run[-1].rstrip(_EDGE) == parts[-1] and run[1:-1] == parts[1:-1]:
             return True
-    if m == 1 and len(parts[0]) >= 8 and _groupable(parts[0]):
-        target = parts[0]
-        for i in range(len(toks)):
-            # "(+44) 20 7946 0958": brackets round a group are how people write it.
-            acc = toks[i].lstrip(_EDGE).rstrip(")")
-            if not _GROUP.fullmatch(acc) or not target.startswith(acc) or acc == target:
-                continue
-            if i and not _group_ends(toks[i - 1]) or i > 1 and _letter_block(toks[i - 1]) \
-                    and not _group_ends(toks[i - 2]):
-                continue  # starts in the middle of a longer number ("GB29 NWBK 6016 ...")
-            for j in range(i + 1, min(len(toks), i + 12)):
-                nxt = toks[j].strip("()")
-                if not _GROUP.fullmatch(nxt):
-                    nxt = toks[j].rstrip(_EDGE)
-                if not _GROUP.fullmatch(nxt):
-                    break
-                if acc + nxt == target:
-                    if j + 1 == len(toks) or toks[j] != toks[j].rstrip(_EDGE.replace(")", "")) \
-                            or not _digit_group(toks[j + 1].lstrip(_EDGE)):
-                        return True
-                    break  # ends in the middle of a longer number
-                acc += nxt
-                if not target.startswith(acc):
-                    break
     return False
 
 
@@ -869,23 +850,58 @@ def _token_match(want: str, text: str) -> bool:
 _GROUP = re.compile(r"\+?[A-Za-z0-9]{1,6}")
 
 
-def _digit_group(token: str) -> bool:
-    """A block that could belong to a grouped number: short, and with a digit in it."""
-    core = token.strip("()")
-    return bool(_GROUP.fullmatch(core)) and any(c.isdigit() for c in core)
+_BLOCK = re.compile(r"\+?[0-9A-Za-z]{1,6}")
+_SEPARATORS = ",;:.!?|"
 
 
-def _group_ends(token: str) -> bool:
-    """True if a grouped number can't continue past this token: it isn't a
-    digit block, or punctuation after it closes the run ("1234, 5678")."""
-    if token and token[-1] in _EDGE and token[-1] != ")":
+def _grouped_match(want: str, text: str) -> bool:
+    """``want`` (no spaces) is a run of whole tokens of ``text`` written in groups,
+    the way IBANs, cards and phones are ("GB29 NWBK 6016 ...", "+44 20 7946 0958").
+
+    This gives nothing the whole-token rule doesn't already give with the spaces
+    left in: any run of the user's tokens is trusted either way. So a run of
+    blocks out of a longer number counts too, which is the "choosing among
+    trusted values" limit in the threat model. Punctuation that separates
+    (a comma, a semicolon) still ends a run, since the user didn't write one
+    number there.
+    """
+    if " " in want or len(want) < 8 or not _groupable(want):
+        return False
+    target = want.casefold()
+    toks = text.split()
+    for i in range(len(toks)):
+        acc = toks[i].lstrip(_EDGE).replace("(", "").replace(")", "")
+        if not _BLOCK.fullmatch(acc) or not target.startswith(acc.casefold()) or acc.casefold() == target:
+            continue
+        acc = acc.casefold()
+        for j in range(i + 1, min(len(toks), i + 12)):
+            last = toks[j].rstrip(_EDGE).replace("(", "").replace(")", "")
+            if not _BLOCK.fullmatch(last):
+                break
+            if acc + last.casefold() == target:
+                return True
+            inner = toks[j].replace("(", "").replace(")", "")
+            if inner != last or not target.startswith(acc + last.casefold()):
+                break  # punctuation after this block ends the run
+            acc += last.casefold()
+    return False
+
+
+def _continues_a_number(before: str) -> bool:
+    """True if a digit sequence starting right after ``before`` would be the tail
+    of a grouped number: glued to it ("NWBK-6016"), or after a digit block or a
+    capitals block that follows one ("GB29 NWBK 6016")."""
+    if before and (before[-1].isalnum() or before[-1] in "-)"):
         return True
-    return not _digit_group(token)
-
-
-def _letter_block(token: str) -> bool:
-    """An all-capitals block like the bank code in "GB29 NWBK 6016"."""
-    return bool(re.fullmatch(r"[A-Z]{1,6}", token))
+    # the last clean chunk of each token: "id:4111" ends in the block "4111"
+    toks = [re.split(r"[^0-9A-Za-z+]", t.strip(_EDGE))[-1] for t in before.split()]
+    if not toks or before[-1:] in _SEPARATORS:
+        return False
+    def digit_block(t: str) -> bool:
+        return bool(_BLOCK.fullmatch(t)) and any(c.isdigit() for c in t)
+    if digit_block(toks[-1]):
+        return True
+    return len(toks) > 1 and bool(re.fullmatch(r"[A-Z]{1,6}", toks[-1])) and digit_block(toks[-2])
 
 
 def _groupable(value: str) -> bool:
@@ -898,8 +914,8 @@ _HOST_VALUE = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63
 _URL_HOST = re.compile(r"(?i)\b(?:https?|wss?|ftp)://(?:[^\s/\\@<>\"']*@)?([^\s/:?#<>\"'\\]+)")
 # No dots, slashes or colons: those make amounts, dates and times, not phone numbers.
 _PHONE_VALUE = re.compile(r"\+?[\d\s()-]+")
-_PHONE_SPAN = re.compile(r"(?<![\w+.,/:])\+?\(?\d[\d\s()-]{6,}\d(?![\w.,/:])")
-_DATE_LIKE = re.compile(r"\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}-\d{4}")
+_PHONE_SPAN = re.compile(r"(?<![\w+.,/:-])\+?\(?\d[\d\s()-]{6,}\d(?![\w.,/:])")
+_DATE_LIKE = re.compile(r"(?<![\d-])(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}-\d{1,2}-\d{4})(?![\d-])")
 
 
 def _same_host_as_a_url(want: str, text: str) -> bool:
@@ -925,6 +941,8 @@ def _same_phone_digits(raw: str, text: str) -> bool:
     plus = raw.strip().startswith("+")
     for m in _PHONE_SPAN.finditer(text):
         span = m.group(0)
+        if _continues_a_number(text[: m.start()]):
+            continue  # the tail of a longer grouped number (an IBAN), not a phone of its own
         if _DATE_LIKE.search(span) or not any(c in span for c in " ()-+"):
             continue  # a bare run of digits is a number, not a phone someone wrote out
         if "".join(c for c in span if c.isdigit()) == digits and span.startswith("+") == plus:

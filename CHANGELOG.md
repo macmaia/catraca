@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-28
+
+### Changed
+- The 0.1.1 change to grouped numbers is withdrawn. It refused a few blocks out of a longer number only when they were passed without spaces, while the same blocks with their spaces were always trusted as whole tokens of the user's text, so it protected nothing and let some legitimate numbers through only in part. A grouped number now matches without its spaces exactly when it would match with them. The threat model and the reference now say plainly that part of a number written in blocks can be picked, which is a case of choosing among trusted values.
+
+### Fixed
+- A comma or semicolon between blocks ends a grouped number, so two numbers the user wrote can't be joined into one.
+- The phone-number rule no longer reads the tail of a longer grouped number (an IBAN written with dashes or spaces) as a phone number of its own, and no longer mistakes "+44-20-7946-0958" for a date.
+
 ## [0.1.1] - 2026-09-28
 
 ### Fixed

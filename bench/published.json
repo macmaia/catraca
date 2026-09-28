@@ -1,7 +1,7 @@
 {
-  "catraca": "0.1.1",
+  "catraca": "0.1.2",
   "environment": {
-    "catraca": "0.1.1",
+    "catraca": "0.1.2",
     "python": "3.11.15",
     "implementation": "CPython",
     "machine": "x86_64",
