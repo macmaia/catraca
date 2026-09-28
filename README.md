@@ -197,6 +197,7 @@ Python 3.10+ and nothing else. The detection figures must match exactly. Timing 
 
 The details, defaults and every knob are in the [reference](docs/reference.md). Also worth a look:
 
+* [Python Cookbook for Prompt Injection Defence](https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/): a runnable book that teaches indirect prompt injection and its defences with catraca, eleven chapters, no API key needed.
 * [docs/architecture.md](docs/architecture.md): the pieces and the order the gate checks things in.
 * [docs/threat-model.md](docs/threat-model.md): who we assume is hostile, what each mode stops, what's out of scope.
 * [docs/related-work.md](docs/related-work.md): where the ideas come from (CaMeL, FIDES and others) and what's new here.

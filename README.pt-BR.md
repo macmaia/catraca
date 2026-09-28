@@ -197,6 +197,7 @@ Só Python 3.10+. Os números de detecção têm que bater exatamente. O tempo d
 
 Os detalhes, os padrões e cada ajuste estão na [referência](docs/reference.pt-BR.md). Também vale olhar:
 
+* [Python Cookbook for Prompt Injection Defence](https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/): um livro executável, em inglês, que ensina injeção indireta de prompt e as defesas com a catraca, em onze capítulos, sem precisar de chave de API.
 * [docs/architecture.md](docs/architecture.md): as peças e a ordem em que o portão confere as coisas.
 * [docs/threat-model.md](docs/threat-model.md): quem supomos hostil, o que cada modo barra, o que fica fora do escopo.
 * [docs/related-work.md](docs/related-work.md): de onde vêm as ideias (CaMeL, FIDES e outros) e o que é novo aqui.
