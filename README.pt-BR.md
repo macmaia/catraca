@@ -208,7 +208,7 @@ Os detalhes, os padrões e cada ajuste estão na [referência](docs/reference.pt
 
 ## O que esta versão cobre
 
-A 0.1.0 traz só o que passou nos critérios de aceite, em testes que rodam a cada push.
+Cada versão traz só o que passou nos critérios de aceite, em testes que rodam a cada push.
 
 | Parte | O que está verificado |
 |---|---|

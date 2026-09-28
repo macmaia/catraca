@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.1.1] - not released yet
+
+### Fixed
+- A number written in groups (an IBAN, a card, a phone number) is now trusted only as the whole run. Before, a few blocks out of the middle or either end, such as `NWBK60161331` from "GB29 NWBK 6016 1331 9268 19", came out trusted, which contradicted the threat model.
+
 ## [0.1.0] - 2026-09-25
 
 First public release.

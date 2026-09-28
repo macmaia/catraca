@@ -823,7 +823,8 @@ def _token_match(want: str, text: str) -> bool:
     Tokens are split on whitespace. The run's outer edges may carry
     punctuation in the text (a trailing comma, brackets round an email).
     A value without spaces also matches a run written in groups, the way
-    IBANs and card numbers usually are ("DE89 3704 0044 ...").
+    IBANs and card numbers usually are ("DE89 3704 0044 ..."), but only the
+    whole run: a few blocks out of the middle of a longer number don't count.
     """
     toks = text.split()
     parts = want.split()
@@ -842,6 +843,9 @@ def _token_match(want: str, text: str) -> bool:
             acc = toks[i].lstrip(_EDGE).rstrip(")")
             if not _GROUP.fullmatch(acc) or not target.startswith(acc) or acc == target:
                 continue
+            if i and not _group_ends(toks[i - 1]) or i > 1 and _letter_block(toks[i - 1]) \
+                    and not _group_ends(toks[i - 2]):
+                continue  # starts in the middle of a longer number ("GB29 NWBK 6016 ...")
             for j in range(i + 1, min(len(toks), i + 12)):
                 nxt = toks[j].strip("()")
                 if not _GROUP.fullmatch(nxt):
@@ -849,7 +853,10 @@ def _token_match(want: str, text: str) -> bool:
                 if not _GROUP.fullmatch(nxt):
                     break
                 if acc + nxt == target:
-                    return True
+                    if j + 1 == len(toks) or toks[j] != toks[j].rstrip(_EDGE.replace(")", "")) \
+                            or not _digit_group(toks[j + 1].lstrip(_EDGE)):
+                        return True
+                    break  # ends in the middle of a longer number
                 acc += nxt
                 if not target.startswith(acc):
                     break
@@ -860,6 +867,25 @@ def _token_match(want: str, text: str) -> bool:
 # runs of letters and digits ("GB29 NWBK 6016 ...", "+44 20 7946 0958"). Words don't qualify, so
 # "bob at example.com" never adds up to "bobatexample.com".
 _GROUP = re.compile(r"\+?[A-Za-z0-9]{1,6}")
+
+
+def _digit_group(token: str) -> bool:
+    """A block that could belong to a grouped number: short, and with a digit in it."""
+    core = token.strip("()")
+    return bool(_GROUP.fullmatch(core)) and any(c.isdigit() for c in core)
+
+
+def _group_ends(token: str) -> bool:
+    """True if a grouped number can't continue past this token: it isn't a
+    digit block, or punctuation after it closes the run ("1234, 5678")."""
+    if token and token[-1] in _EDGE and token[-1] != ")":
+        return True
+    return not _digit_group(token)
+
+
+def _letter_block(token: str) -> bool:
+    """An all-capitals block like the bank code in "GB29 NWBK 6016"."""
+    return bool(re.fullmatch(r"[A-Z]{1,6}", token))
 
 
 def _groupable(value: str) -> bool:

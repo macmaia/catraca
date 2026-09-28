@@ -208,7 +208,7 @@ The details, defaults and every knob are in the [reference](docs/reference.md). 
 
 ## What this release covers
 
-0.1.0 ships only what has passed its acceptance criteria in tests that run on every push.
+Every release ships only what has passed its acceptance criteria in tests that run on every push.
 
 | Part | What's verified |
 |---|---|

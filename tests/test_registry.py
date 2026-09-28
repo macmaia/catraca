@@ -599,3 +599,33 @@ class PhoneRuleIsForPhones(unittest.TestCase):
         r.annotate("log in at https://ok.example\\@evil.example/login", "user")
         r.annotate("some page", "kb")
         self.assertIs(r.resolve("evil.example").label.integrity, U)
+
+
+class GroupedRunsAreWhole(unittest.TestCase):
+    """Only the whole grouped number is trusted, never a few blocks out of it."""
+
+    IBAN = "pay GB29 NWBK 6016 1331 9268 19 today"
+
+    def test_the_whole_number_matches(self):
+        from catraca.registry import _token_match
+        self.assertTrue(_token_match("GB29NWBK60161331926819", self.IBAN))
+        self.assertTrue(_token_match("GB29NWBK60161331926819", "IBAN GB29 NWBK 6016 1331 9268 19"))
+
+    def test_blocks_from_the_start_middle_or_end_dont(self):
+        from catraca.registry import _token_match
+        for piece in ("GB29NWBK", "NWBK60161331", "60161331926819"):
+            self.assertFalse(_token_match(piece, self.IBAN), piece)
+        self.assertFalse(_token_match("12345678", "card 1234 5678 9012"))
+        self.assertFalse(_token_match("56789012", "card 1234 5678 9012"))
+
+    def test_punctuation_or_words_close_a_run(self):
+        from catraca.registry import _token_match
+        self.assertTrue(_token_match("56789012", "codes 1234, 5678 9012"))
+        self.assertTrue(_token_match("22223333", "4111 1111 then 2222 3333"))
+
+    def test_registry_level(self):
+        r = fresh()
+        r.annotate("Pay GB29 NWBK 6016 1331 9268 19", "user")
+        r.annotate("some page", "kb")
+        self.assertIs(r.resolve("GB29NWBK60161331926819").label.integrity, T)
+        self.assertIs(r.resolve("NWBK60161331").label.integrity, U)
