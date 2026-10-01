@@ -126,6 +126,23 @@ class Robustness(unittest.TestCase):
         del msg["id"]
         self.assertEqual(proxy(trust_client=True).from_client(json.dumps(msg)), (None, None))
 
+    def test_non_json_lines_from_the_server_dont_reach_the_agent(self):
+        with tempfile.TemporaryDirectory() as d:
+            noisy = Path(d) / "noisy.py"
+            noisy.write_text("import sys\nprint('added 39 packages')\nprint()\n"
+                             "sys.stdout.flush()\nsys.argv = sys.argv[1:]\nexec(open(sys.argv[0]).read())\n")
+            log = Path(d) / "calls"
+            log.touch()
+            stdin = io.StringIO(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}) + "\n")
+            stdout = io.StringIO()
+            import contextlib
+            with contextlib.redirect_stderr(io.StringIO()):
+                run(proxy(), [sys.executable, str(noisy), SERVER, str(log)], stdin=stdin, stdout=stdout)
+        lines = stdout.getvalue().splitlines()
+        self.assertTrue(lines)
+        for line in lines:
+            json.loads(line)
+
     def test_session_survives_bad_bytes(self):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "calls"

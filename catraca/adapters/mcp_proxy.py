@@ -133,6 +133,16 @@ def run(proxy: McpProxy, server_cmd: Sequence[str], *, stdin: IO[str] = sys.stdi
         assert server.stdout is not None
         try:
             for line in server.stdout:
+                if not line.strip():
+                    continue
+                try:
+                    json.loads(line)
+                except ValueError:
+                    # stdout is only for MCP messages. Some servers (or the tools
+                    # they install on first use) print other things there, which
+                    # would break the agent's parser. Send those to stderr.
+                    sys.stderr.write(f"catraca-mcp-proxy: server printed a non-JSON line: {line[:200]}")
+                    continue
                 to_agent(line)
         except (OSError, ValueError):
             pass  # the agent's side is gone, nothing left to relay to

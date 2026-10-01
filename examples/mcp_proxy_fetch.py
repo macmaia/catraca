@@ -67,9 +67,11 @@ async def main() -> None:
                 check(refused is not None and "EGRESS_NOT_ALLOWED" in refused,
                       "a call to a host that isn't allowed is refused with the reason code")
 
-                good = {"url": "https://example.com/", "max_length": 500}
+                good = {"url": "https://example.com/", "max_length": 2000, "raw": True}
                 ok = await session.call_tool("fetch", good, meta=signed(good))
                 text = " ".join(getattr(c, "text", "") for c in ok.content)
+                if ok.isError or "Example Domain" not in text:
+                    print("server answered:", text[:500])
                 check(not ok.isError and "Example Domain" in text,
                       "the same session still works, and an allowed page comes back")
         records = [json.loads(x) for x in log.read_text().splitlines()]
