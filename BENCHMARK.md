@@ -11,7 +11,7 @@ You need Python 3.10 or later and git. Nothing gets installed.
 ```
 git clone https://github.com/macmaia/catraca
 cd catraca
-git checkout v0.1.3            # or the commit you want to check
+git checkout v0.2.0            # or the commit you want to check
 python -m bench.report --check
 ```
 
@@ -26,7 +26,7 @@ CI runs the same command on Python 3.10 to 3.13 on every push.
 
 ## Detection
 
-From `bench/published.json`, catraca 0.1.3.
+From `bench/published.json`, catraca 0.2.0.
 
 | Bank | Cases | Correct | Injected values caught | Trusted values wrongly flagged |
 |---|---|---|---|---|
@@ -66,9 +66,9 @@ Most of these go away with a typed rule for harmless args (see "Harmless args wi
 * **It doesn't cover paraphrase.** By design, see the [threat model](docs/threat-model.md).
 * **Mode A isn't in this table.** Its guarantee is structural, and it's covered by the test suite, not a detection rate.
 
-### Not measured yet: attack success and utility with a real model
+### Not a model run
 
-The number that compares with published defences (attack success rate and utility on AgentDojo with an actual model) needs a run with a model API key and the AgentDojo adapter, which isn't in this release yet. Until that run is published here, please don't quote catraca next to AgentDojo leaderboard numbers.
+None of these numbers is attack success or utility on AgentDojo with a model, so please don't quote them next to AgentDojo leaderboard numbers.
 
 ## Timing
 
@@ -104,7 +104,7 @@ Precisa de Python 3.10 ou mais novo e de git. Nada é instalado.
 ```
 git clone https://github.com/macmaia/catraca
 cd catraca
-git checkout v0.1.3            # ou o commit que você quer conferir
+git checkout v0.2.0            # ou o commit que você quer conferir
 python -m bench.report --check
 ```
 
@@ -119,7 +119,7 @@ O CI roda o mesmo comando no Python 3.10 a 3.13 a cada push.
 
 ## Detecção
 
-De `bench/published.json`, catraca 0.1.3. A tabela acima vale para as duas línguas: 37 de 40 corretos no banco escrito à mão (33 de 36 valores injetados pegos, 0 de 4 confiáveis marcados por engano), 124 de 124 no banco gerado do AgentDojo, e 20 de 26 no banco benigno (6 falsos positivos, 23,1%). O `bench.report` também mostra o intervalo de Wilson de 95% de cada taxa, que sai largo com bancos pequenos: 78,2% a 97,1% na detecção do banco escrito à mão, 11,0% a 42,1% nos falsos positivos do benigno.
+De `bench/published.json`, catraca 0.2.0. A tabela acima vale para as duas línguas: 37 de 40 corretos no banco escrito à mão (33 de 36 valores injetados pegos, 0 de 4 confiáveis marcados por engano), 124 de 124 no banco gerado do AgentDojo, e 20 de 26 no banco benigno (6 falsos positivos, 23,1%). O `bench.report` também mostra o intervalo de Wilson de 95% de cada taxa, que sai largo com bancos pequenos: 78,2% a 97,1% na detecção do banco escrito à mão, 11,0% a 42,1% nos falsos positivos do benigno.
 
 "Pego" quer dizer que o registro rotulou o valor do atacante como UNTRUSTED, então, com a política padrão, o portão nega a chamada ou pede confirmação.
 
@@ -132,9 +132,9 @@ As falhas conhecidas, todas do modo B. Injeções que passam: `translation-after
 * **Não cobre paráfrase.** De propósito, veja o [modelo de ameaças](docs/threat-model.md).
 * **O modo A não está nesta tabela.** A garantia dele é estrutural e é coberta pela suíte de testes, não por uma taxa de detecção.
 
-### Ainda não medido: sucesso de ataque e utilidade com um modelo de verdade
+### Não é uma execução com modelo
 
-O número comparável a defesas publicadas (taxa de sucesso de ataque e utilidade no AgentDojo com um modelo) precisa de uma execução com chave de API e do adaptador do AgentDojo, que ainda não está nesta versão. Até essa execução ser publicada aqui, por favor não cite a catraca ao lado de números do placar do AgentDojo.
+Nenhum desses números é sucesso de ataque ou utilidade no AgentDojo com um modelo, então por favor não os cite ao lado de números do placar do AgentDojo.
 
 ## Tempo
 

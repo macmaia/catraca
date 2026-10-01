@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catraca"
-version = "0.1.3"
+version = "0.2.0"
 description = "Provenance-aware authorisation for LLM agent tool calls, a defence against indirect prompt injection and data exfiltration."
 readme = "README.md"
 license = "Apache-2.0"

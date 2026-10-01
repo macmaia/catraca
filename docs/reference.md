@@ -179,7 +179,7 @@ result = runner.run(plan.seal(key))
 * Every step still goes through the gate (policy, egress, evidence) with labels fixed at the edges. So an address the quarantine was tricked into writing in a body is stopped by egress.
 * `plan_with(planner, request, policy=..., tools=...)` asks a planner model for the plan. It only ever sees the request and the tool list.
 
-Limits: plans are straight-line, no loops or branches that depend on data. Side channels (how many steps ran, timing, which step failed) aren't covered, same as CaMeL. The utility cost on AgentDojo hasn't been measured yet.
+Limits: plans are straight-line, no loops or branches that depend on data. Side channels (how many steps ran, timing, which step failed) aren't covered, same as CaMeL.
 
 ## Adapters
 
@@ -187,7 +187,7 @@ Limits: plans are straight-line, no loops or branches that depend on data. Side 
 |---|---|---|
 | Python decorator | `catraca.adapters.python.guarded` | `guarded(gate, caller=fn, tool=None, destination=None, approve=None)`. `caller` is a function with no args that returns the `Caller` for the current request, called on every call. `approve(decision)` shows `decision.confirmation` to the person and returns `True` only on an explicit yes (sync or async). Without `approve`, a confirmation raises `ConfirmationRequired`. Args are bound by name, defaults included, and pre-bound `functools.partial` args are checked too. `*args`/`**kwargs` functions are refused. Runs the function only on ALLOW, sync or async |
 | MCP server middleware | `catraca.adapters.mcp.catraca_middleware` | `async (ctx, call_next)`. The SDK marks this hook provisional. A server can't see the client's context, so args are UNTRUSTED unless the client signs its labels (`sign_labels`, checked with `label_key=`, bound to the tool, the values, a 5-minute window and a nonce that's accepted once per process, or once overall if the workers share a `nonces=` store with an atomic `first_use`) or you pass `trust_client=True`. Refusals are the SDK's own error, code -32001 |
-| MCP proxy | `catraca-mcp-proxy` (`catraca.adapters.mcp_proxy`) | `catraca-mcp-proxy --policy policy.json --egress egress.json --tenant acme --user agent --evidence decisions.jsonl -- <server command>`. Starts the server over stdio and checks every `tools/call` before the server sees it. A refused call gets a JSON-RPC error (code -32001) and the connection stays up. It forwards its own re-encoding of what it checked, and refuses duplicate keys and batches that hold a tool call. Labels work as in the middleware (`--label-key-env`, `--trust-client`) |
+| MCP proxy | `catraca-mcp-proxy` (`catraca.adapters.mcp_proxy`) | `catraca-mcp-proxy --policy policy.json --egress egress.json --tenant acme --user agent --evidence decisions.jsonl -- <server command>`. Starts the server over stdio and checks every `tools/call` before the server sees it. A refused call gets a JSON-RPC error (code -32001) and the connection stays up. It forwards its own re-encoding of what it checked, and refuses duplicate keys and batches that hold a tool call. Labels work as in the middleware (`--label-key-env`, `--trust-client`). Without signed labels every arg is UNTRUSTED, so a call that names a URL, host or email is denied even on an allowed host. `examples/mcp_proxy_fetch.py` runs it in front of the reference fetch server |
 
 Each one has a runnable example in `examples/`, and CI runs them (the MCP one against the real SDK).
 

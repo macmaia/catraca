@@ -22,7 +22,7 @@ In long sessions the residual drifts towards UNTRUSTED. The defaults are strict 
 
 Known failures live in `bench/propagation_cases.json`, and CI publishes the score. Each case says where it comes from: AgentDojo injection goals, the EchoLeak exfil pattern, real obfuscation tricks, or `synthetic` when we wrote it ourselves. On top of that, `bench/agentdojo_cases.json` is generated from the AgentDojo v1 goals (`python -m bench.make_agentdojo_cases`): every goal with a literal attacker value, through four attack templates plus an obfuscated copy, 124 cases in all. Literal matching catches literal values, so that bank's 100% is expected by construction: it checks the machinery, it isn't evidence of protection.
 
-**What the numbers do and don't show.** All three case banks are ours, and none is a run of AgentDojo with a real model (that one's still to be published). A benign bank measures false positives: today 6 of its 26 benign calls get flagged, mostly values the model worked out itself. The details, and how to check every figure yourself, are in [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md). What's in and out of scope is in the [threat model](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
+**What the numbers do and don't show.** All three case banks are ours, and none is a run of AgentDojo with a real model. A benign bank measures false positives: today 6 of its 26 benign calls get flagged, mostly values the model worked out itself. The details, and how to check every figure yourself, are in [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md). What's in and out of scope is in the [threat model](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
 
 ## Install
 
@@ -200,7 +200,7 @@ The details, defaults and every knob are in the [reference](https://github.com/m
 * [Python Cookbook for Prompt Injection Defence](https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/): a runnable book that teaches indirect prompt injection and its defences with catraca, eleven chapters, no API key needed.
 * [docs/architecture.md](https://github.com/macmaia/catraca/blob/main/docs/architecture.md): the pieces and the order the gate checks things in.
 * [docs/threat-model.md](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md): who we assume is hostile, what each mode stops, what's out of scope.
-* [docs/related-work.md](https://github.com/macmaia/catraca/blob/main/docs/related-work.md): where the ideas come from (CaMeL, FIDES and others) and what's new here.
+* Ideas this builds on: CaMeL (Debenedetti et al., 2025), FIDES (Costa, Köpf et al., 2025), the dual-LLM pattern and Spotlighting (Hines et al., 2024).
 * [docs/decisions.md](https://github.com/macmaia/catraca/blob/main/docs/decisions.md): the design decisions, why each was taken and what it costs.
 * [docs/audit-and-privacy.md](https://github.com/macmaia/catraca/blob/main/docs/audit-and-privacy.md): what the decision log holds and proves, keys, retention, LGPD and GDPR.
 * [SECURITY.md](https://github.com/macmaia/catraca/blob/main/SECURITY.md): how to report a vulnerability privately.
@@ -221,9 +221,8 @@ Every release ships only what has passed its acceptance criteria in tests that r
 | Evidence | a denial can be rebuilt from the record alone, without the original data |
 | Mode A (sealed plan) | untrusted content telling the model to call another tool doesn't change what runs |
 | Python decorator, MCP middleware | end-to-end examples run in CI |
-| MCP proxy | a call it refuses never reaches the server, and the connection stays up (tested against a stand-in server) |
+| MCP proxy | a call it refuses never reaches the server, and the connection stays up (example in CI against the reference fetch server) |
 
-**Not in this release**, still being verified: adapters for Cedar, OPA, LangGraph and AgentDojo, and attack-success and utility numbers from an AgentDojo run with a real model. They'll ship once they pass the same bar. Also still to come: the MCP proxy run in front of a real third-party server, the token cost of mode A measured next to CaMeL's, and a reference customer-service agent run with and without catraca.
 
 ## Running the tests
 

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
 ### Added
 - `catraca-mcp-proxy`: a stdio proxy that checks every tool call before an MCP server sees it, for servers you didn't write.
 
@@ -40,7 +42,8 @@
 
 First public release: labels and channels, the context registry (mode B), the gate, declarative policy, egress checks, the evidence log and its CLI, sealed plans (mode A), the Python decorator and MCP server middleware, docs in English and Portuguese, and the benchmark. See the [README](https://github.com/macmaia/catraca/blob/v0.1.0/README.md) for what each part does and its known limits.
 
-[Unreleased]: https://github.com/macmaia/catraca/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/macmaia/catraca/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/macmaia/catraca/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/macmaia/catraca/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/macmaia/catraca/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/macmaia/catraca/compare/v0.1.0...v0.1.1

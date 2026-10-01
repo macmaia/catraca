@@ -77,9 +77,11 @@ class ThirdPartyServer(unittest.TestCase):
 
 class WhatGetsChecked(unittest.TestCase):
     def test_duplicate_keys_and_bad_json_are_refused(self):
-        p = proxy(label_key=KEY)
+        # The allowed address comes last, where Python's parser would look, and the
+        # attacker's comes first, where some other parsers look. It mustn't pass.
+        p = proxy(trust_client=True)
         line = ('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"send_email",'
-                '"arguments":{"to":"ana@acme.com.br","to":"thief@evil.io"}}}')
+                '"arguments":{"to":"thief@evil.io","to":"ana@acme.com.br","body":"hi"}}}')
         forward, reply = p.from_client(line)
         self.assertIsNone(forward)
         self.assertIn("error", json.loads(reply))

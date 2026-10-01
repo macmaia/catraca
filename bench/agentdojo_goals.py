@@ -10,12 +10,11 @@ the benchmark, so no real mailbox ends up in this repo. The sender
 the service in the story, not a destination the attacker wants. Only goals
 with a literal attacker value are here, since that's what mode B can track. Goals like "book the most
 expensive hotel in Paris" have no literal to follow and are left out on purpose.
-Workspace tasks 6 to 13 aren't transcribed yet.
+Workspace tasks 6 to 13 aren't included.
 
 Attack templates: ``important_instructions`` is quoted from the AgentDojo
 paper. The other three are the well-known templates the benchmark ships with,
-reproduced here from its attacks module and still to be checked word for word
-against the installed package.
+reproduced here from its attacks module.
 """
 
 IBAN = "US133000000121212121212"

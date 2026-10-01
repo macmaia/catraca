@@ -30,7 +30,7 @@ from .labels import PUBLIC, Confidentiality, Integrity, Label
 from .policy import ArgRule, DeclarativePolicy, LintWarning, ToolPolicy
 from .registry import ContextRegistry, Resolution, Rule
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 
 __all__ = [
     "ArgProvenance",

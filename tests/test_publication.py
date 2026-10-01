@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = [
     "README.md", "README.pt-BR.md", "BENCHMARK.md", "SECURITY.md", "CHANGELOG.md", "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md", "docs/architecture.md", "docs/threat-model.md", "docs/reference.md",
-    "docs/reference.pt-BR.md", "docs/audit-and-privacy.md", "docs/related-work.md", "docs/decisions.md",
+    "docs/reference.pt-BR.md", "docs/audit-and-privacy.md", "docs/decisions.md",
 ]
 
 class PublishedNumbers(unittest.TestCase):

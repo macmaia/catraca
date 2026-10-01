@@ -373,23 +373,20 @@ class RunsOnce(unittest.TestCase):
             self.runner(World(), ran=shared).run(sealed)
 
 
-    def test_runners_sharing_a_set_cant_both_run_it(self):
+    def test_claims_on_a_shared_set_are_one_at_a_time(self):
+        # Check-then-add on a shared set is only safe if every runner takes the
+        # same lock. Hold it here and a claim from another runner has to wait.
         import threading
-        shared, sealed, results = set(), Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY), []
 
-        def go():
-            try:
-                self.runner(World(), ran=shared).run(sealed)
-                results.append("ran")
-            except PlanError:
-                results.append("refused")
-
-        threads = [threading.Thread(target=go) for _ in range(8)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        self.assertEqual(sorted(results), ["ran"] + ["refused"] * 7)
+        from catraca.plan import MemoryRuns
+        shared, done = set(), threading.Event()
+        worker = threading.Thread(target=lambda: (MemoryRuns(shared).claim("d"), done.set()))
+        with MemoryRuns._lock:
+            worker.start()
+            self.assertFalse(done.wait(0.2))
+        worker.join(2)
+        self.assertTrue(done.is_set())
+        self.assertFalse(MemoryRuns(shared).claim("d"))
 
     def test_plans_sealed_without_a_nonce_are_refused(self):
         import hashlib

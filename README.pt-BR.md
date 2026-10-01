@@ -22,7 +22,7 @@ Em sessão longa o residual tende a UNTRUSTED. Os padrões são estritos de prop
 
 As falhas conhecidas ficam em `bench/propagation_cases.json`, e o CI publica o placar. Cada caso diz de onde veio: objetivos de injeção do AgentDojo, o padrão de exfiltração do EchoLeak, truques reais de ofuscação, ou `synthetic` quando fomos nós que escrevemos. Além disso, `bench/agentdojo_cases.json` é gerado a partir dos objetivos do AgentDojo v1 (`python -m bench.make_agentdojo_cases`): todo objetivo com valor literal do atacante, passando por quatro modelos de ataque mais uma cópia ofuscada, 124 casos no total. Casamento literal pega valor literal, então os 100% desse banco são esperados por construção: conferem o mecanismo, não são evidência de proteção.
 
-**O que os números mostram e o que não mostram.** Os três bancos de casos são nossos, e nenhum é uma execução do AgentDojo com um modelo de verdade (essa ainda vai ser publicada). Um banco benigno mede falso positivo: hoje 6 das 26 chamadas benignas dele são barradas, na maioria valores que o modelo calculou sozinho. Os detalhes, e como conferir cada número sozinho, estão no [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md). O que está dentro e fora do escopo está no [modelo de ameaças](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
+**O que os números mostram e o que não mostram.** Os três bancos de casos são nossos, e nenhum é uma execução do AgentDojo com um modelo de verdade. Um banco benigno mede falso positivo: hoje 6 das 26 chamadas benignas dele são barradas, na maioria valores que o modelo calculou sozinho. Os detalhes, e como conferir cada número sozinho, estão no [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md). O que está dentro e fora do escopo está no [modelo de ameaças](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
 
 ## Instalação
 
@@ -200,7 +200,7 @@ Os detalhes, os padrões e cada ajuste estão na [referência](https://github.co
 * [Python Cookbook for Prompt Injection Defence](https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/): um livro executável, em inglês, que ensina injeção indireta de prompt e as defesas com a catraca, em onze capítulos, sem precisar de chave de API.
 * [docs/architecture.md](https://github.com/macmaia/catraca/blob/main/docs/architecture.md): as peças e a ordem em que o portão confere as coisas.
 * [docs/threat-model.md](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md): quem supomos hostil, o que cada modo barra, o que fica fora do escopo.
-* [docs/related-work.md](https://github.com/macmaia/catraca/blob/main/docs/related-work.md): de onde vêm as ideias (CaMeL, FIDES e outros) e o que é novo aqui.
+* Ideias em que se apoia: CaMeL (Debenedetti et al., 2025), FIDES (Costa, Köpf et al., 2025), o padrão dual-LLM e o Spotlighting (Hines et al., 2024).
 * [docs/decisions.md](https://github.com/macmaia/catraca/blob/main/docs/decisions.md): as decisões de desenho, por que cada uma foi tomada e o que custa.
 * [docs/audit-and-privacy.md](https://github.com/macmaia/catraca/blob/main/docs/audit-and-privacy.md): o que o registro de decisões guarda e prova, chaves, retenção, LGPD e GDPR.
 * [SECURITY.md](https://github.com/macmaia/catraca/blob/main/SECURITY.md): como relatar uma vulnerabilidade em privado.
@@ -221,9 +221,8 @@ Cada versão traz só o que passou nos critérios de aceite, em testes que rodam
 | Evidência | uma negação pode ser reconstruída só com o registro, sem o dado original |
 | Modo A (plano selado) | conteúdo não confiável mandando o modelo chamar outra ferramenta não muda o que roda |
 | Decorador Python, middleware MCP | exemplos ponta a ponta rodam no CI |
-| Proxy MCP | uma chamada recusada nunca chega ao servidor, e a conexão continua de pé (testado com um servidor substituto) |
+| Proxy MCP | uma chamada recusada nunca chega ao servidor, e a conexão continua de pé (exemplo no CI contra o servidor fetch de referência) |
 
-**Fora desta versão**, ainda em verificação: adaptadores para Cedar, OPA, LangGraph e AgentDojo, e os números de sucesso de ataque e utilidade de uma execução do AgentDojo com um modelo de verdade. Entram quando passarem pelo mesmo critério. Também ainda por vir: o proxy MCP rodado na frente de um servidor de terceiros de verdade, o custo em tokens do modo A medido ao lado do CaMeL, e um agente de atendimento de referência rodado com e sem a catraca.
 
 ## Rodando os testes
 
