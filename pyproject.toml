@@ -4,17 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catraca"
-version = "0.1.2"
-description = "Provenance-aware authorisation for agent tool calls."
+version = "0.1.3"
+description = "Provenance-aware authorisation for LLM agent tool calls, a defence against indirect prompt injection and data exfiltration."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.10"
 authors = [{name = "Maria Alice Maia"}]
-keywords = ["llm", "agents", "prompt-injection", "authorisation", "provenance", "security", "mcp"]
+keywords = ["llm", "agents", "ai-agents", "prompt-injection", "llm-security", "agent-security", "authorisation", "authorization", "provenance", "tool-calling", "data-exfiltration", "information-flow-control", "guardrails", "security", "mcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Natural Language :: English",
+    "Natural Language :: Portuguese (Brazilian)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -24,6 +27,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Security",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = []
 
@@ -34,6 +39,9 @@ mcp = ["mcp>=1.2,<2"]
 Homepage = "https://github.com/macmaia/catraca"
 Source = "https://github.com/macmaia/catraca"
 Issues = "https://github.com/macmaia/catraca/issues"
+Documentation = "https://github.com/macmaia/catraca/blob/main/docs/reference.md"
+Cookbook = "https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/"
+Benchmark = "https://github.com/macmaia/catraca/blob/main/BENCHMARK.md"
 Changelog = "https://github.com/macmaia/catraca/blob/main/CHANGELOG.md"
 
 [project.scripts]

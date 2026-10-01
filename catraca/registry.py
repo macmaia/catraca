@@ -852,6 +852,7 @@ _GROUP = re.compile(r"\+?[A-Za-z0-9]{1,6}")
 
 _BLOCK = re.compile(r"\+?[0-9A-Za-z]{1,6}")
 _SEPARATORS = ",;:.!?|"
+_LONG_BLOCK = re.compile(r"\+?[0-9A-Za-z]{1,34}")
 
 
 def _grouped_match(want: str, text: str) -> bool:
@@ -890,18 +891,20 @@ def _grouped_match(want: str, text: str) -> bool:
 def _continues_a_number(before: str) -> bool:
     """True if a digit sequence starting right after ``before`` would be the tail
     of a grouped number: glued to it ("NWBK-6016"), or after a digit block or a
-    capitals block that follows one ("GB29 NWBK 6016")."""
+    letters block that follows one ("GB29 NWBK 6016", in any case)."""
     if before and (before[-1].isalnum() or before[-1] in "-)"):
         return True
     # the last clean chunk of each token: "id:4111" ends in the block "4111"
     toks = [re.split(r"[^0-9A-Za-z+]", t.strip(_EDGE))[-1] for t in before.split()]
     if not toks or before[-1:] in _SEPARATORS:
         return False
+    # Any case, and up to 34 characters (the longest IBAN), so "gb29 nwbk",
+    # "Nwbk" and a glued "GB29NWBK" count as the start of the same number.
     def digit_block(t: str) -> bool:
-        return bool(_BLOCK.fullmatch(t)) and any(c.isdigit() for c in t)
+        return bool(_LONG_BLOCK.fullmatch(t)) and any(c.isdigit() for c in t)
     if digit_block(toks[-1]):
         return True
-    return len(toks) > 1 and bool(re.fullmatch(r"[A-Z]{1,6}", toks[-1])) and digit_block(toks[-2])
+    return len(toks) > 1 and bool(re.fullmatch(r"[A-Za-z]{1,6}", toks[-1])) and digit_block(toks[-2])
 
 
 def _groupable(value: str) -> bool:

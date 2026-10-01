@@ -1,6 +1,6 @@
 # catraca
 
-*Português (Brasil). [Read in English](README.md).*
+*Português (Brasil). [Read in English](https://github.com/macmaia/catraca/blob/main/README.md).*
 
 Autorização de chamada de ferramenta com procedência para agentes. Zero dependência em tempo de execução, Python 3.10 ou superior.
 
@@ -8,21 +8,21 @@ A catraca não pergunta se você é bandido. Ela pergunta se você tem passagem.
 
 ## Dois modos, duas promessas diferentes
 
-**Modo A, plano selado (`catraca.plan`): garantia estrutural, dentro do [modelo de ameaças](docs/threat-model.md).** O plano sai só de entrada confiável, é selado e executado passo a passo. Conteúdo não confiável não muda quais ferramentas rodam, em que ordem, nem para onde as coisas vão. O preço é o agente não poder replanejar a partir do que lê.
+**Modo A, plano selado (`catraca.plan`): garantia estrutural, dentro do [modelo de ameaças](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).** O plano sai só de entrada confiável, é selado e executado passo a passo. Conteúdo não confiável não muda quais ferramentas rodam, em que ordem, nem para onde as coisas vão. O preço é o agente não poder replanejar a partir do que lê.
 
 **Modo B, registro de contexto: redução de risco.** Funciona com o agente que você já tem. Está explicado logo abaixo, com os limites.
 
 ## Leia antes: o que o modo B promete e o que não promete
 
-O registro de contexto (modo B) pega conteúdo não confiável que chega de forma literal, ou quase literal, aos argumentos de uma chamada de ferramenta. Ele **não** pega paráfrase, tradução nem recodificação fora das variantes que conhece. Quando a janela de contexto tem conteúdo não confiável, a regra conservadora marca como UNTRUSTED todo argumento (ou segmento) que não casou. Isso cobre bastante coisa, mas é redução de risco, não garantia estrutural. Se você precisa dessa garantia, o caminho é o modo A, o plano selado (veja a [referência](docs/reference.pt-BR.md#modo-a-o-plano-selado)).
+O registro de contexto (modo B) pega conteúdo não confiável que chega de forma literal, ou quase literal, aos argumentos de uma chamada de ferramenta. Ele **não** pega paráfrase, tradução nem recodificação fora das variantes que conhece. Quando a janela de contexto tem conteúdo não confiável, a regra conservadora marca como UNTRUSTED todo argumento (ou segmento) que não casou. Isso cobre bastante coisa, mas é redução de risco, não garantia estrutural. Se você precisa dessa garantia, o caminho é o modo A, o plano selado (veja a [referência](https://github.com/macmaia/catraca/blob/main/docs/reference.pt-BR.md#modo-a-o-plano-selado)).
 
-Ele também não sabe qual dos valores do próprio usuário era para qual arg: se o usuário escreveu dois endereços, um texto injetado pode escolher o errado e ele continua parecendo confiável. Veja o [modelo de ameaças](docs/threat-model.md).
+Ele também não sabe qual dos valores do próprio usuário era para qual arg: se o usuário escreveu dois endereços, um texto injetado pode escolher o errado e ele continua parecendo confiável. Veja o [modelo de ameaças](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
 
 Em sessão longa o residual tende a UNTRUSTED. Os padrões são estritos de propósito, então você afrouxa por argumento onde errar custa pouco, por exemplo um corpo de texto livre.
 
 As falhas conhecidas ficam em `bench/propagation_cases.json`, e o CI publica o placar. Cada caso diz de onde veio: objetivos de injeção do AgentDojo, o padrão de exfiltração do EchoLeak, truques reais de ofuscação, ou `synthetic` quando fomos nós que escrevemos. Além disso, `bench/agentdojo_cases.json` é gerado a partir dos objetivos do AgentDojo v1 (`python -m bench.make_agentdojo_cases`): todo objetivo com valor literal do atacante, passando por quatro modelos de ataque mais uma cópia ofuscada, 124 casos no total. Casamento literal pega valor literal, então os 100% desse banco são esperados por construção: conferem o mecanismo, não são evidência de proteção.
 
-**O que os números mostram e o que não mostram.** Os três bancos de casos são nossos, e nenhum é uma execução do AgentDojo com um modelo de verdade (essa ainda vai ser publicada). Um banco benigno mede falso positivo: hoje 6 das 26 chamadas benignas dele são barradas, na maioria valores que o modelo calculou sozinho. Os detalhes, e como conferir cada número sozinho, estão no [BENCHMARK.md](BENCHMARK.md). O que está dentro e fora do escopo está no [modelo de ameaças](docs/threat-model.md).
+**O que os números mostram e o que não mostram.** Os três bancos de casos são nossos, e nenhum é uma execução do AgentDojo com um modelo de verdade (essa ainda vai ser publicada). Um banco benigno mede falso positivo: hoje 6 das 26 chamadas benignas dele são barradas, na maioria valores que o modelo calculou sozinho. Os detalhes, e como conferir cada número sozinho, estão no [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md). O que está dentro e fora do escopo está no [modelo de ameaças](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
 
 ## Instalação
 
@@ -130,7 +130,7 @@ except CallDenied as e:
     print("refused:", e.decision.reason.name)   # refused: UNTRUSTED_ARGUMENT
 ```
 
-Cuidado com valores padrão e valores que o próprio modelo escolhe (`limit=5`, uma data calculada a partir de "amanhã"). Eles nunca aparecem nas palavras do usuário, então, com os padrões estritos, são negados. Dê tipo e limites aos args inofensivos, como acima, em vez de abri-los com um `"integrity": "ANY"` sozinho. Mantenha estrito tudo que diga *para onde* ou *para quem* (destinatários, contas, URLs, caminhos). O `guarded` também aceita `approve=` (uma função que mostra a confirmação à pessoa e devolve `True` só com um sim explícito), `tool=` (o nome na política, se for diferente do nome da função) e `destination=`. Mais na [referência](docs/reference.pt-BR.md).
+Cuidado com valores padrão e valores que o próprio modelo escolhe (`limit=5`, uma data calculada a partir de "amanhã"). Eles nunca aparecem nas palavras do usuário, então, com os padrões estritos, são negados. Dê tipo e limites aos args inofensivos, como acima, em vez de abri-los com um `"integrity": "ANY"` sozinho. Mantenha estrito tudo que diga *para onde* ou *para quem* (destinatários, contas, URLs, caminhos). O `guarded` também aceita `approve=` (uma função que mostra a confirmação à pessoa e devolve `True` só com um sim explícito), `tool=` (o nome na política, se for diferente do nome da função) e `destination=`. Mais na [referência](https://github.com/macmaia/catraca/blob/main/docs/reference.pt-BR.md).
 
 Todo arg que contenha uma URL, um host ou um endereço de email também passa pelas regras de saída, e um portão criado sem `egress=` usa o `Egress.strict()`, que não permite destino nenhum. Então uma ferramenta de email ou HTTP é negada com `EGRESS_NOT_ALLOWED` até você listar para onde ela pode mandar, como o início rápido faz com `Egress.from_dict(...)`.
 
@@ -138,7 +138,7 @@ Todo arg que contenha uma URL, um host ou um endereço de email também passa pe
 
 Três coisas que a biblioteca não faz sozinha.
 
-**Mostre ao registro a janela real a cada turno (modo B).** O modo B vale o quanto vale a imagem que o registro tem do contexto do modelo: uma fonte que ninguém anotou, ou um `forget` de algo que o modelo ainda vê, enfraquece a proteção sem aviso. Antes de cada `decide`, passe os textos das mensagens que o modelo tem para `registry.observe(window)`, incluindo as respostas do próprio modelo. O texto que ninguém anotou entra como UNTRUSTED, e o `forget` é recusado enquanto o texto ainda está lá. Anote o prompt de sistema num canal confiável, senão toda janela conta como contaminada. Detalhes na [referência](docs/reference.pt-BR.md).
+**Mostre ao registro a janela real a cada turno (modo B).** O modo B vale o quanto vale a imagem que o registro tem do contexto do modelo: uma fonte que ninguém anotou, ou um `forget` de algo que o modelo ainda vê, enfraquece a proteção sem aviso. Antes de cada `decide`, passe os textos das mensagens que o modelo tem para `registry.observe(window)`, incluindo as respostas do próprio modelo. O texto que ninguém anotou entra como UNTRUSTED, e o `forget` é recusado enquanto o texto ainda está lá. Anote o prompt de sistema num canal confiável, senão toda janela conta como contaminada. Detalhes na [referência](https://github.com/macmaia/catraca/blob/main/docs/reference.pt-BR.md).
 
 **Tire checkpoints do registro de evidência com agendamento.** A cadeia de hash pega edições no meio do registro, mas os registros escritos depois do último checkpoint podem ser cortados do fim sem o `verify` perceber. Então, numa implantação de verdade, o checkpoint não é tarefa de vez em quando, é um job agendado: tire um a cada hora, mais ou menos, no processo que escreve o registro, e guarde num lugar que a máquina do registro não consiga reescrever (um bucket com object lock, um ticket, um carimbo de tempo assinado). A chave do checkpoint vem do seu cofre de segredos e nunca fica ao lado do registro.
 
@@ -184,7 +184,7 @@ git clone https://github.com/macmaia/catraca && cd catraca
 python -m bench.report --check
 ```
 
-Só Python 3.10+. Os números de detecção têm que bater exatamente. O tempo depende da sua máquina: se ela for mais lenta que a nossa, o `--check` acusa a meta de latência como não atingida, e o `--timing-warn-only` transforma isso em aviso. Veja o [BENCHMARK.md](BENCHMARK.md).
+Só Python 3.10+. Os números de detecção têm que bater exatamente. O tempo depende da sua máquina: se ela for mais lenta que a nossa, o `--check` acusa a meta de latência como não atingida, e o `--timing-warn-only` transforma isso em aviso. Veja o [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md).
 
 ## O que vem na caixa
 
@@ -195,17 +195,17 @@ Só Python 3.10+. Os números de detecção têm que bater exatamente. O tempo d
 * **Modo A**: o plano selado, para quando você precisa da garantia estrutural.
 * **Adaptadores**: decorador Python (síncrono e assíncrono) e middleware para servidor MCP.
 
-Os detalhes, os padrões e cada ajuste estão na [referência](docs/reference.pt-BR.md). Também vale olhar:
+Os detalhes, os padrões e cada ajuste estão na [referência](https://github.com/macmaia/catraca/blob/main/docs/reference.pt-BR.md). Também vale olhar:
 
 * [Python Cookbook for Prompt Injection Defence](https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/): um livro executável, em inglês, que ensina injeção indireta de prompt e as defesas com a catraca, em onze capítulos, sem precisar de chave de API.
-* [docs/architecture.md](docs/architecture.md): as peças e a ordem em que o portão confere as coisas.
-* [docs/threat-model.md](docs/threat-model.md): quem supomos hostil, o que cada modo barra, o que fica fora do escopo.
-* [docs/related-work.md](docs/related-work.md): de onde vêm as ideias (CaMeL, FIDES e outros) e o que é novo aqui.
-* [docs/decisions.md](docs/decisions.md): as decisões de desenho, por que cada uma foi tomada e o que custa.
-* [docs/audit-and-privacy.md](docs/audit-and-privacy.md): o que o registro de decisões guarda e prova, chaves, retenção, LGPD e GDPR.
-* [SECURITY.md](SECURITY.md): como relatar uma vulnerabilidade em privado.
-* [CONTRIBUTING.md](CONTRIBUTING.md#português-brasil): como rodar as coisas, estilo da casa e como acrescentar um caso.
-* [CHANGELOG.md](CHANGELOG.md).
+* [docs/architecture.md](https://github.com/macmaia/catraca/blob/main/docs/architecture.md): as peças e a ordem em que o portão confere as coisas.
+* [docs/threat-model.md](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md): quem supomos hostil, o que cada modo barra, o que fica fora do escopo.
+* [docs/related-work.md](https://github.com/macmaia/catraca/blob/main/docs/related-work.md): de onde vêm as ideias (CaMeL, FIDES e outros) e o que é novo aqui.
+* [docs/decisions.md](https://github.com/macmaia/catraca/blob/main/docs/decisions.md): as decisões de desenho, por que cada uma foi tomada e o que custa.
+* [docs/audit-and-privacy.md](https://github.com/macmaia/catraca/blob/main/docs/audit-and-privacy.md): o que o registro de decisões guarda e prova, chaves, retenção, LGPD e GDPR.
+* [SECURITY.md](https://github.com/macmaia/catraca/blob/main/SECURITY.md): como relatar uma vulnerabilidade em privado.
+* [CONTRIBUTING.md](https://github.com/macmaia/catraca/blob/main/CONTRIBUTING.md#português-brasil): como rodar as coisas, estilo da casa e como acrescentar um caso.
+* [CHANGELOG.md](https://github.com/macmaia/catraca/blob/main/CHANGELOG.md).
 
 ## O que esta versão cobre
 
@@ -215,14 +215,14 @@ Cada versão traz só o que passou nos critérios de aceite, em testes que rodam
 |---|---|
 | Rótulos e canais | um rótulo combinado nunca é menos restritivo que as partes (teste de propriedade) |
 | Registro de contexto (modo B) | injeção numa janela pega na seguinte, lavagem por cobertura parcial pega, banco de casos publicado com as falhas conhecidas |
-| Portão | três vereditos, erro interno nunca vira ALLOW (testes de injeção de falha), p99 abaixo de 1 ms na janela de referência (8 docs de 400 palavras), os outros cenários estão no [BENCHMARK.md](BENCHMARK.md) |
+| Portão | três vereditos, erro interno nunca vira ALLOW (testes de injeção de falha), p99 abaixo de 1 ms na janela de referência (8 docs de 400 palavras), os outros cenários estão no [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md) |
 | Política (JSON) | padrões estritos, tipos por argumento, lint |
 | Saída | destino tirado de conteúdo recuperado é negado mesmo com a ferramenta permitida |
 | Evidência | uma negação pode ser reconstruída só com o registro, sem o dado original |
 | Modo A (plano selado) | conteúdo não confiável mandando o modelo chamar outra ferramenta não muda o que roda |
 | Decorador Python, middleware MCP | exemplos ponta a ponta rodam no CI |
 
-**Fora desta versão**, ainda em verificação: adaptadores para Cedar, OPA, LangGraph e AgentDojo, e os números de sucesso de ataque e utilidade de uma execução do AgentDojo com um modelo de verdade. Entram quando passarem pelo mesmo critério.
+**Fora desta versão**, ainda em verificação: adaptadores para Cedar, OPA, LangGraph e AgentDojo, e os números de sucesso de ataque e utilidade de uma execução do AgentDojo com um modelo de verdade. Entram quando passarem pelo mesmo critério. Também ainda por vir: um proxy MCP independente, que fica na frente de um servidor de terceiros (hoje há só o middleware de servidor), o custo em tokens do modo A medido ao lado do CaMeL, e um agente de atendimento de referência rodado com e sem a catraca.
 
 ## Rodando os testes
 
@@ -240,6 +240,6 @@ Os testes de propriedade usam só a biblioteca padrão, com semente fixa (`CATRA
 
 ## Licença
 
-Apache 2.0. Veja o [LICENSE](LICENSE) e o [NOTICE](NOTICE).
+Apache 2.0. Veja o [LICENSE](https://github.com/macmaia/catraca/blob/main/LICENSE) e o [NOTICE](https://github.com/macmaia/catraca/blob/main/NOTICE).
 
-A catraca é fornecida como está, sem garantia de nenhum tipo (veja as seções 7 e 8 da licença). Ela reduz riscos específicos descritos no [modelo de ameaças](docs/threat-model.md). Não é uma defesa completa contra injeção de prompt, e não é um produto de conformidade: usá-la não torna, sozinha, um sistema conforme à LGPD, ao GDPR ou ao AI Act europeu.
+A catraca é fornecida como está, sem garantia de nenhum tipo (veja as seções 7 e 8 da licença). Ela reduz riscos específicos descritos no [modelo de ameaças](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md). Não é uma defesa completa contra injeção de prompt, e não é um produto de conformidade: usá-la não torna, sozinha, um sistema conforme à LGPD, ao GDPR ou ao AI Act europeu.

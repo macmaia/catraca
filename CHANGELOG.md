@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-30
+
+### Fixed
+- The guard that keeps the tail of an IBAN from being read as a phone number now works whatever the case of the letters ("gb29 nwbk 6016 ..."), and when the country and bank blocks are written together ("GB29NWBK 6016 ..."). Before, those forms let the tail through as a trusted phone number.
+
+### Added
+- Regression tests for the three grouped-number fixes in 0.1.2.
+
+### Docs
+- The READMEs use full links, so they work on the PyPI page too, and link to the cookbook.
+- The README lists three more things still to come: a standalone MCP proxy, the token cost of mode A next to CaMeL, and a reference customer-service agent run with and without catraca.
+- Package metadata: a clearer summary, more keywords and classifiers, and links to the documentation, the benchmark and the cookbook.
+
 ## [0.1.2] - 2026-09-28
 
 ### Changed
@@ -45,3 +58,9 @@ First public release.
 ### Known limits
 - Mode B doesn't catch paraphrase or translation, and can't tell which of the user's own values was meant. See `docs/threat-model.md`.
 - The AgentDojo run with a real model hasn't been published yet. See `BENCHMARK.md`.
+
+[Unreleased]: https://github.com/macmaia/catraca/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/macmaia/catraca/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/macmaia/catraca/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/macmaia/catraca/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/macmaia/catraca/releases/tag/v0.1.0

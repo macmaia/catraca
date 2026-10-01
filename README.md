@@ -1,6 +1,6 @@
 # catraca
 
-*English (UK). [Leia em português](README.pt-BR.md).*
+*English (UK). [Leia em português](https://github.com/macmaia/catraca/blob/main/README.pt-BR.md).*
 
 Provenance-aware authorisation for agent tool calls. No runtime dependencies, Python 3.10+.
 
@@ -8,21 +8,21 @@ A turnstile doesn't ask whether you're a crook. It asks whether you've got a tic
 
 ## Two modes, two different promises
 
-**Mode A, sealed plan (`catraca.plan`): a structural guarantee, within the [threat model](docs/threat-model.md).** The plan is made from trusted input only, sealed, and run step by step. Untrusted content can't change which tools run, in what order, or where anything goes. The price is that the agent can't replan from what it reads.
+**Mode A, sealed plan (`catraca.plan`): a structural guarantee, within the [threat model](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).** The plan is made from trusted input only, sealed, and run step by step. Untrusted content can't change which tools run, in what order, or where anything goes. The price is that the agent can't replan from what it reads.
 
 **Mode B, context registry: risk reduction.** It works with the agent you already have. It's explained right below, with its limits.
 
 ## Read this first: what mode B does and doesn't promise
 
-The context registry (mode B) catches untrusted content that travels literally, or nearly literally, into the args of a tool call. It does **not** catch paraphrase, translation or re-encoding beyond the variants it knows. When the context window holds untrusted content, the conservative rule marks every arg (or segment) that didn't match as UNTRUSTED. That covers a fair bit, but it's risk reduction, not a structural guarantee. If you need that guarantee, you want mode A, the sealed plan (see the [reference](docs/reference.md#mode-a-the-sealed-plan)).
+The context registry (mode B) catches untrusted content that travels literally, or nearly literally, into the args of a tool call. It does **not** catch paraphrase, translation or re-encoding beyond the variants it knows. When the context window holds untrusted content, the conservative rule marks every arg (or segment) that didn't match as UNTRUSTED. That covers a fair bit, but it's risk reduction, not a structural guarantee. If you need that guarantee, you want mode A, the sealed plan (see the [reference](https://github.com/macmaia/catraca/blob/main/docs/reference.md#mode-a-the-sealed-plan)).
 
-It also can't tell which of the user's own values was meant for which arg: if the user wrote two addresses, injected text can pick the wrong one and it still looks trusted. See the [threat model](docs/threat-model.md).
+It also can't tell which of the user's own values was meant for which arg: if the user wrote two addresses, injected text can pick the wrong one and it still looks trusted. See the [threat model](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
 
 In long sessions the residual drifts towards UNTRUSTED. The defaults are strict on purpose, so you loosen per arg where getting it wrong is cheap, e.g. a free-text body.
 
 Known failures live in `bench/propagation_cases.json`, and CI publishes the score. Each case says where it comes from: AgentDojo injection goals, the EchoLeak exfil pattern, real obfuscation tricks, or `synthetic` when we wrote it ourselves. On top of that, `bench/agentdojo_cases.json` is generated from the AgentDojo v1 goals (`python -m bench.make_agentdojo_cases`): every goal with a literal attacker value, through four attack templates plus an obfuscated copy, 124 cases in all. Literal matching catches literal values, so that bank's 100% is expected by construction: it checks the machinery, it isn't evidence of protection.
 
-**What the numbers do and don't show.** All three case banks are ours, and none is a run of AgentDojo with a real model (that one's still to be published). A benign bank measures false positives: today 6 of its 26 benign calls get flagged, mostly values the model worked out itself. The details, and how to check every figure yourself, are in [BENCHMARK.md](BENCHMARK.md). What's in and out of scope is in the [threat model](docs/threat-model.md).
+**What the numbers do and don't show.** All three case banks are ours, and none is a run of AgentDojo with a real model (that one's still to be published). A benign bank measures false positives: today 6 of its 26 benign calls get flagged, mostly values the model worked out itself. The details, and how to check every figure yourself, are in [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md). What's in and out of scope is in the [threat model](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md).
 
 ## Install
 
@@ -130,7 +130,7 @@ except CallDenied as e:
     print("refused:", e.decision.reason.name)   # refused: UNTRUSTED_ARGUMENT
 ```
 
-Watch out for defaults and values the model picks itself (`limit=5`, a date worked out from "tomorrow"). They never appear in the user's words, so under the strict defaults they're denied. Give harmless args a type and bounds, as above, instead of opening them with a bare `"integrity": "ANY"`. Keep anything that says *where* or *who* (recipients, accounts, URLs, paths) strict. `guarded` also takes `approve=` (a function that shows the confirmation to the person and returns `True` only on an explicit yes), `tool=` (the policy name, if it differs from the function's) and `destination=`. More in the [reference](docs/reference.md).
+Watch out for defaults and values the model picks itself (`limit=5`, a date worked out from "tomorrow"). They never appear in the user's words, so under the strict defaults they're denied. Give harmless args a type and bounds, as above, instead of opening them with a bare `"integrity": "ANY"`. Keep anything that says *where* or *who* (recipients, accounts, URLs, paths) strict. `guarded` also takes `approve=` (a function that shows the confirmation to the person and returns `True` only on an explicit yes), `tool=` (the policy name, if it differs from the function's) and `destination=`. More in the [reference](https://github.com/macmaia/catraca/blob/main/docs/reference.md).
 
 Any arg that holds a URL, a host or an email address is also checked against the egress rules, and a gate built without `egress=` uses `Egress.strict()`, which allows no destination at all. So an email or HTTP tool is denied with `EGRESS_NOT_ALLOWED` until you list where it may send, as the quick start does with `Egress.from_dict(...)`.
 
@@ -138,7 +138,7 @@ Any arg that holds a URL, a host or an email address is also checked against the
 
 Three things the library can't do on its own.
 
-**Show the registry the real window every turn (mode B).** Mode B is only as good as the registry's picture of the model's context: a source nobody annotated, or a `forget` for something the model can still see, weakens it without a sound. Before each `decide`, pass the texts of the messages the model has to `registry.observe(window)`, the model's own replies included. Text nobody annotated comes in as UNTRUSTED, and `forget` is refused while the text is still there. Annotate the system prompt on a trusted channel, or every window counts as tainted. Details in the [reference](docs/reference.md).
+**Show the registry the real window every turn (mode B).** Mode B is only as good as the registry's picture of the model's context: a source nobody annotated, or a `forget` for something the model can still see, weakens it without a sound. Before each `decide`, pass the texts of the messages the model has to `registry.observe(window)`, the model's own replies included. Text nobody annotated comes in as UNTRUSTED, and `forget` is refused while the text is still there. Annotate the system prompt on a trusted channel, or every window counts as tainted. Details in the [reference](https://github.com/macmaia/catraca/blob/main/docs/reference.md).
 
 **Checkpoint the evidence log on a schedule.** The hash chain catches edits in the middle of the log, but records written after the latest checkpoint can be cut off the end without `verify` noticing. So in a real deployment a checkpoint isn't an occasional chore, it's a scheduled job: take one every hour or so, in the process that writes the log, and keep it somewhere the log's host can't rewrite (a bucket with object lock, a ticket, a signed timestamp). The anchor key comes from your secrets manager and never sits next to the log.
 
@@ -184,7 +184,7 @@ git clone https://github.com/macmaia/catraca && cd catraca
 python -m bench.report --check
 ```
 
-Python 3.10+ and nothing else. The detection figures must match exactly. Timing depends on your machine: if it's slower than ours, `--check` reports the latency target as missed, and `--timing-warn-only` turns that into a warning. See [BENCHMARK.md](BENCHMARK.md).
+Python 3.10+ and nothing else. The detection figures must match exactly. Timing depends on your machine: if it's slower than ours, `--check` reports the latency target as missed, and `--timing-warn-only` turns that into a warning. See [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md).
 
 ## What's in the box
 
@@ -195,17 +195,17 @@ Python 3.10+ and nothing else. The detection figures must match exactly. Timing 
 * **Mode A**: the sealed plan, for when you need the structural guarantee.
 * **Adapters**: a Python decorator (sync and async) and MCP server middleware.
 
-The details, defaults and every knob are in the [reference](docs/reference.md). Also worth a look:
+The details, defaults and every knob are in the [reference](https://github.com/macmaia/catraca/blob/main/docs/reference.md). Also worth a look:
 
 * [Python Cookbook for Prompt Injection Defence](https://macmaia.github.io/Python-Cookbook-for-Prompt-Injection-Defence/): a runnable book that teaches indirect prompt injection and its defences with catraca, eleven chapters, no API key needed.
-* [docs/architecture.md](docs/architecture.md): the pieces and the order the gate checks things in.
-* [docs/threat-model.md](docs/threat-model.md): who we assume is hostile, what each mode stops, what's out of scope.
-* [docs/related-work.md](docs/related-work.md): where the ideas come from (CaMeL, FIDES and others) and what's new here.
-* [docs/decisions.md](docs/decisions.md): the design decisions, why each was taken and what it costs.
-* [docs/audit-and-privacy.md](docs/audit-and-privacy.md): what the decision log holds and proves, keys, retention, LGPD and GDPR.
-* [SECURITY.md](SECURITY.md): how to report a vulnerability privately.
-* [CONTRIBUTING.md](CONTRIBUTING.md): how to run things, house style and how to add a case.
-* [CHANGELOG.md](CHANGELOG.md).
+* [docs/architecture.md](https://github.com/macmaia/catraca/blob/main/docs/architecture.md): the pieces and the order the gate checks things in.
+* [docs/threat-model.md](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md): who we assume is hostile, what each mode stops, what's out of scope.
+* [docs/related-work.md](https://github.com/macmaia/catraca/blob/main/docs/related-work.md): where the ideas come from (CaMeL, FIDES and others) and what's new here.
+* [docs/decisions.md](https://github.com/macmaia/catraca/blob/main/docs/decisions.md): the design decisions, why each was taken and what it costs.
+* [docs/audit-and-privacy.md](https://github.com/macmaia/catraca/blob/main/docs/audit-and-privacy.md): what the decision log holds and proves, keys, retention, LGPD and GDPR.
+* [SECURITY.md](https://github.com/macmaia/catraca/blob/main/SECURITY.md): how to report a vulnerability privately.
+* [CONTRIBUTING.md](https://github.com/macmaia/catraca/blob/main/CONTRIBUTING.md): how to run things, house style and how to add a case.
+* [CHANGELOG.md](https://github.com/macmaia/catraca/blob/main/CHANGELOG.md).
 
 ## What this release covers
 
@@ -215,14 +215,14 @@ Every release ships only what has passed its acceptance criteria in tests that r
 |---|---|
 | Labels and channels | a combined label is never less strict than its parts (property test) |
 | Context registry (mode B) | injection in one window caught in the next, laundering by partial cover caught, case bank published with its known failures |
-| Gate | three verdicts, an internal error never becomes ALLOW (fault injection tests), p99 under 1 ms on the reference window (8 docs of 400 words), see [BENCHMARK.md](BENCHMARK.md) for the other scenarios |
+| Gate | three verdicts, an internal error never becomes ALLOW (fault injection tests), p99 under 1 ms on the reference window (8 docs of 400 words), see [BENCHMARK.md](https://github.com/macmaia/catraca/blob/main/BENCHMARK.md) for the other scenarios |
 | Policy (JSON) | strict defaults, typed args, lint |
 | Egress | a destination taken from retrieved content is denied even when the tool is allowed |
 | Evidence | a denial can be rebuilt from the record alone, without the original data |
 | Mode A (sealed plan) | untrusted content telling the model to call another tool doesn't change what runs |
 | Python decorator, MCP middleware | end-to-end examples run in CI |
 
-**Not in this release**, still being verified: adapters for Cedar, OPA, LangGraph and AgentDojo, and attack-success and utility numbers from an AgentDojo run with a real model. They'll ship once they pass the same bar.
+**Not in this release**, still being verified: adapters for Cedar, OPA, LangGraph and AgentDojo, and attack-success and utility numbers from an AgentDojo run with a real model. They'll ship once they pass the same bar. Also still to come: a standalone MCP proxy that sits in front of a third-party server (today there's server middleware only), the token cost of mode A measured next to CaMeL's, and a reference customer-service agent run with and without catraca.
 
 ## Running the tests
 
@@ -240,6 +240,6 @@ The property tests only use the standard library, with a fixed seed (`CATRACA_SE
 
 ## Licence
 
-Apache 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache 2.0. See [LICENSE](https://github.com/macmaia/catraca/blob/main/LICENSE) and [NOTICE](https://github.com/macmaia/catraca/blob/main/NOTICE).
 
-catraca is provided as is, without warranty of any kind (see sections 7 and 8 of the licence). It reduces specific risks described in the [threat model](docs/threat-model.md). It isn't a complete defence against prompt injection, and it isn't a compliance product: using it doesn't by itself make a system compliant with LGPD, GDPR or the EU AI Act.
+catraca is provided as is, without warranty of any kind (see sections 7 and 8 of the licence). It reduces specific risks described in the [threat model](https://github.com/macmaia/catraca/blob/main/docs/threat-model.md). It isn't a complete defence against prompt injection, and it isn't a compliance product: using it doesn't by itself make a system compliant with LGPD, GDPR or the EU AI Act.

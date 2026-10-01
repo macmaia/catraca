@@ -299,6 +299,48 @@ class PartialCoverageAndConsequential(unittest.TestCase):
         self.assertIs(out["to"].label.integrity, U)
 
 
+
+class GroupedNumberFixesHold(unittest.TestCase):
+    """Regression tests for the three fixes in 0.1.2."""
+
+    def test_iban_tail_isnt_a_phone_in_any_case(self):
+        for user in ["IBAN GB29 NWBK 6016 1331 9268 19",
+                     "IBAN gb29 nwbk 6016 1331 9268 19",
+                     "IBAN GB29 Nwbk 6016 1331 9268 19",
+                     "IBAN GB29NWBK 6016 1331 9268 19"]:
+            r = fresh()
+            r.annotate(user, "user")
+            r.annotate("some page", "kb")
+            self.assertIsNot(r.resolve("6016-1331-9268-19").label.integrity, T, user)
+
+    def test_hyphenated_phone_with_country_code(self):
+        r = fresh()
+        r.annotate("call +44-20-7946-0958", "user")
+        r.annotate("some page", "kb")
+        self.assertIs(r.resolve("+442079460958").label.integrity, T)
+
+    def test_short_blocks_after_a_country_code_stay_a_phone(self):
+        # "12-34-5678" looks like a date, but here it follows "+1-"
+        r = fresh()
+        r.annotate("call +1-12-34-5678", "user")
+        r.annotate("some page", "kb")
+        self.assertIs(r.resolve("+112345678").label.integrity, T)
+
+    def test_a_date_value_isnt_a_phone(self):
+        for user, value in [("ring 2026 0930", "2026-09-30"), ("phone 12 34 2026", "12-34-2026")]:
+            r = fresh()
+            r.annotate(user, "user")
+            r.annotate("some page", "kb")
+            self.assertIsNot(r.resolve(value).label.integrity, T, user)
+
+    def test_dates_arent_phones(self):
+        for user, value in [("due 2026-09-30", "20260930"), ("born 30-09-1990", "30091990")]:
+            r = fresh()
+            r.annotate(user, "user")
+            r.annotate("some page", "kb")
+            self.assertIsNot(r.resolve(value).label.integrity, T, user)
+
+
 if __name__ == "__main__":
     unittest.main()
 

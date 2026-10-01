@@ -91,6 +91,11 @@ class Docs(unittest.TestCase):
         for doc in DOCS:
             path = ROOT / doc
             for target in re.findall(r"\]\(([^)#]+?)(?:#[^)]*)?\)", path.read_text(encoding="utf-8")):
+                repo = "https://github.com/macmaia/catraca/blob/main/"
+                if target.startswith(repo):
+                    # The READMEs use full links so they also work on PyPI.
+                    self.assertTrue((ROOT / target[len(repo):]).exists(), f"{doc} links to missing {target}")
+                    continue
                 if target.startswith("http"):
                     continue
                 self.assertTrue((path.parent / target).exists(), f"{doc} links to missing {target}")
