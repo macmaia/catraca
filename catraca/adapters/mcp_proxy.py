@@ -52,6 +52,11 @@ def _no_duplicates(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
 MAX_LINE = 16 * 1024 * 1024  # bytes, per message
 
 
+def _no_constants(name: str) -> Any:
+    # NaN and Infinity aren't JSON, and parsers disagree on them.
+    raise ValueError(f"{name} isn't valid JSON")
+
+
 def _error(msg_id: Any, code: int, message: str) -> Dict[str, Any]:
     return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
 
@@ -80,7 +85,7 @@ class McpProxy:
         if len(line) > MAX_LINE:
             return None, _encode(_error(None, -32600, "catraca: refused, message too large"))
         try:
-            msg = json.loads(line, object_pairs_hook=_no_duplicates)
+            msg = json.loads(line, object_pairs_hook=_no_duplicates, parse_constant=_no_constants)
         except (ValueError, RecursionError):
             # Can't be checked, so it doesn't go through. No id to answer to.
             return None, _encode(_error(None, -32700, "catraca: refused, not valid JSON"))
@@ -200,6 +205,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             key = bytes.fromhex(os.environ[args.label_key_env])
         except (KeyError, ValueError):
             ap.error(f"{args.label_key_env} must hold the label key in hex")
+        if len(key) < 16:
+            ap.error(f"{args.label_key_env} holds a key shorter than 16 bytes")
     # The proxy never sees the agent's context, so the registry stays empty and
     # every arg's label comes from LabelChecker.
     registry = ContextRegistry(ChannelConfig.from_dict(

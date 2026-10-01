@@ -4,10 +4,20 @@
 
 ## [Unreleased]
 
+### Fixed
+- `catraca-mcp-proxy` refuses NaN and Infinity, and refuses a label key shorter than 16 bytes at start-up instead of failing later.
+
 ## [0.2.0] - 2026-10-01
 
+### Breaking
+- Plans sealed by 0.1.x are refused by `PlanRunner.run`. Seal them again.
+- MCP labels signed by 0.1.x clients are refused. Update the client.
+- `tarja_redactor()` needs `tarja` 0.5 or newer.
+
 ### Added
-- `catraca-mcp-proxy`: a stdio proxy that checks every tool call before an MCP server sees it, for servers you didn't write.
+- `catraca-mcp-proxy` (`McpProxy`): a stdio proxy that checks every tool call before an MCP server sees it, for servers you didn't write.
+- `LabelChecker`, `NonceStore` and `MemoryNonces`, and `nonces=` on the middleware, to share used nonces between workers.
+- `RunStore` and `MemoryRuns`, and `ran=` on `PlanRunner`, to share the plans that already ran.
 
 ### Changed
 - Each sealed plan runs once. Sealing adds a nonce, so the same plan sealed twice is two plans.

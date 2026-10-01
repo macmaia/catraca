@@ -121,6 +121,25 @@ class Robustness(unittest.TestCase):
         forward, reply = p.from_client(json.dumps([[call(1, "ana@acme.com.br")]]))
         self.assertIsNone(forward)
 
+    def test_nan_and_infinity_are_refused(self):
+        p = proxy(trust_client=True)
+        for bad in ('{"jsonrpc":"2.0","id":1,"method":"ping","x":NaN}',
+                    '{"jsonrpc":"2.0","id":1,"method":"ping","x":Infinity}'):
+            forward, reply = p.from_client(bad)
+            self.assertIsNone(forward)
+
+    def test_a_short_label_key_is_refused_up_front(self):
+        import os
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(POLICY, f)
+        os.environ["CATRACA_TEST_KEY"] = "00ff"
+        try:
+            with self.assertRaises(SystemExit):
+                main(["--policy", f.name, "--tenant", "acme", "--user", "a", "--no-evidence",
+                      "--label-key-env", "CATRACA_TEST_KEY", "--", "true"])
+        finally:
+            del os.environ["CATRACA_TEST_KEY"]
+
     def test_a_refused_notification_gets_no_answer(self):
         msg = call(1, "thief@evil.io")
         del msg["id"]
