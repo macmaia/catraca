@@ -57,9 +57,10 @@ catraca = ["py.typed"]
 [tool.mutmut]
 # mutmut 3 runs pytest in a copy of the tree, so the tests need the
 # benchmark, examples and docs they read copied over too.
-paths_to_mutate = ["catraca/"]
+source_paths = ["catraca/"]
 tests_dir = ["tests/"]
-also_copy = ["bench/", "examples/", "docs/", "README.md", "README.pt-BR.md", "BENCHMARK.md", "CHANGELOG.md", "NOTICE", "LICENSE", "pyproject.toml", ".github/"]
+also_copy = ["bench/", "examples/", "docs/", "README.md", "README.pt-BR.md", "BENCHMARK.md", "CHANGELOG.md", "SECURITY.md",
+             "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "NOTICE", "LICENSE", "pyproject.toml", ".github/"]
 
 [tool.ruff]
 line-length = 140

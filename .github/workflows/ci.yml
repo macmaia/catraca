@@ -113,6 +113,7 @@ jobs:
   mutation:
     name: mutation testing
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     # Non-blocking until the first real run sets a baseline score.
     continue-on-error: true
     steps:
