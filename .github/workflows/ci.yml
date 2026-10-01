@@ -112,8 +112,11 @@ jobs:
 
   mutation:
     name: mutation testing
+    # A full run takes hours, so it runs on the weekly schedule or by hand
+    # (gh workflow run ci.yml), not on every push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 340
     # Non-blocking until the first real run sets a baseline score.
     continue-on-error: true
     steps:
@@ -124,8 +127,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "mutmut>=3,<4" "pytest>=8,<9"
-      - run: mutmut run --max-children 2 || true  # surviving mutants are reported below, not a failure
-      - run: mutmut results | tee -a "$GITHUB_STEP_SUMMARY"
+      - run: mutmut run --max-children 4 || true  # surviving mutants are reported below, not a failure
+      - name: Results, even if the run was cut short
+        if: always()
+        run: mutmut results | tee mutation-results.txt | tail -300 >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: mutation-results
+          path: mutation-results.txt
 
   tlds:
     name: Curated TLD list against IANA
