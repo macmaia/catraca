@@ -58,6 +58,7 @@ import itertools
 import json
 import re
 import threading
+import time
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple
@@ -188,6 +189,7 @@ class ContextRegistry:
         self._channels = channels
         self._k = min_length
         self._turn = 0
+        self._generation = 0  # bumped by each export_state
         self._counter = itertools.count(1)
         self._snippets: Dict[str, Snippet] = {}
         self._slot_of: Dict[str, int] = {}
@@ -291,9 +293,17 @@ class ContextRegistry:
         With ``key``, the state carries an HMAC and ``from_state`` checks it:
         whoever can edit stored state could otherwise relabel an untrusted
         snippet as trusted.
+
+        Each export gets the next ``generation`` number and the time it was
+        saved. Keep the latest generation you stored and pass it to
+        ``from_state(min_generation=...)``, so an older signed state can't be
+        put back in place of a newer one.
         """
+        self._generation += 1
         state = {
             "version": 1,
+            "generation": self._generation,
+            "saved_at": int(time.time()),
             "min_length": self._k,
             "turn": self._turn,
             "next_id": max([_id_key(s) for s in self._snippets]
@@ -312,9 +322,12 @@ class ContextRegistry:
 
     @classmethod
     def from_state(cls, channels: ChannelConfig, state: Mapping[str, Any], *, key: Optional[bytes] = None,
-                   trust_unsigned: bool = False) -> "ContextRegistry":
+                   trust_unsigned: bool = False, min_generation: Optional[int] = None,
+                   max_age: Optional[float] = None) -> "ContextRegistry":
         """Rebuild a registry from ``export_state``. Needs the same ``key``, or
-        ``trust_unsigned=True`` if the store is one only you can write to."""
+        ``trust_unsigned=True`` if the store is one only you can write to.
+        ``min_generation`` refuses a state older than the newest one you saved,
+        and ``max_age`` (seconds) refuses one saved too long ago."""
         if not isinstance(state, Mapping) or state.get("version") != 1:
             raise RegistryError("unknown registry state version.")
         if key is not None:
@@ -324,6 +337,17 @@ class ContextRegistry:
                 raise RegistryError("registry state signature doesn't match.")
         elif not trust_unsigned:
             raise RegistryError("registry state needs key= to be checked (or trust_unsigned=True).")
+        generation, saved_at = state.get("generation"), state.get("saved_at")
+        if isinstance(generation, bool) or (generation is not None and not isinstance(generation, int)):
+            raise RegistryError("bad registry state: generation must be a whole number.")
+        if isinstance(saved_at, bool) or (saved_at is not None and not isinstance(saved_at, int)):
+            raise RegistryError("bad registry state: saved_at must be a whole number.")
+        if min_generation is not None and (generation is None or generation < min_generation):
+            raise RegistryError("registry state is older than the latest one saved (rolled back?).")
+        if max_age is not None:
+            age = None if saved_at is None else time.time() - saved_at
+            if age is None or age > max_age or age < -30:  # 30 s of clock skew, no more
+                raise RegistryError("registry state is too old, or dated in the future.")
         try:
             reg = cls(channels, min_length=int(state["min_length"]))
             reg._turn = int(state["turn"])
@@ -341,6 +365,7 @@ class ContextRegistry:
                 reg._insert(sn["text"], channel, sn["origin"], label, sid=sn["id"], turn=int(sn["turn"]))
             reg._forgotten = [ForgetRecord(f["snippet_id"], int(f["turn"]), f["reason"]) for f in state["forgotten"]]
             reg._counter = itertools.count(int(state["next_id"]))
+            reg._generation = int(generation) if isinstance(generation, int) else 0
         except (KeyError, TypeError, ValueError) as exc:
             raise RegistryError(f"bad registry state: {exc}") from None
         return reg

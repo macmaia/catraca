@@ -150,6 +150,22 @@ class Mcp(unittest.TestCase):
         with self.assertRaises(ValueError):
             catraca_middleware(g, caller_for=lambda c: ANA, label_key=b"short")
 
+    def test_signed_labels_work_once(self):
+        g, _ = gate()
+        mw = catraca_middleware(g, caller_for=lambda ctx: ANA, label_key=self.KEY, error=PermissionError)
+        args = {"to": "ana@acme.com.br"}
+        call = {"name": "send_email", "arguments": args,
+                "_meta": {META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email")}}
+        self.assertEqual(self.run_mw(mw, Ctx("tools/call", call)), "tool ran")
+        # The same signed call sent again is a replay, so its labels don't count.
+        with self.assertRaises(PermissionError):
+            self.run_mw(mw, Ctx("tools/call", call))
+        # A signature without a nonce (the 0.1 format) isn't accepted either.
+        old = dict(call["_meta"][META_KEY])
+        del old["nonce"]
+        with self.assertRaises(PermissionError):
+            self.run_mw(mw, Ctx("tools/call", dict(call, _meta={META_KEY: old})))
+
     def test_trust_client_is_explicit(self):
         g, _ = gate()
         mw = catraca_middleware(g, caller_for=lambda ctx: ANA, trust_client=True, error=PermissionError)

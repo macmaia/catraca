@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+- `catraca-mcp-proxy`: a stdio proxy that checks every tool call before an MCP server sees it, for servers you didn't write.
+
+### Changed
+- Each sealed plan runs once. Sealing adds a nonce, so the same plan sealed twice is two plans.
+- An `ask` with `Schema.enum` must be wrapped in `confirm`.
+- Signed MCP labels carry a nonce and are accepted once. Labels signed by 0.1.x clients are no longer accepted.
+- Saved registry state has a generation number. `from_state(min_generation=..., max_age=...)` refuses an older one.
+- `tarja_redactor()` uses Tarja's `mask()`, then the built-in scrubber.
+
 ## [0.1.3] - 2026-09-30
 
 ### Fixed

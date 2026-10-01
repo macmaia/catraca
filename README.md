@@ -193,7 +193,7 @@ Python 3.10+ and nothing else. The detection figures must match exactly. Timing 
 * **Egress**: works out where a call really sends things and checks it against an allowlist and against provenance.
 * **Evidence**: a chained, redacted log of every decision that you can verify and replay.
 * **Mode A**: the sealed plan, for when you need the structural guarantee.
-* **Adapters**: a Python decorator (sync and async) and MCP server middleware.
+* **Adapters**: a Python decorator (sync and async), MCP server middleware, and a stdio proxy that puts the gate in front of any MCP server, including one you didn't write (`catraca-mcp-proxy`).
 
 The details, defaults and every knob are in the [reference](https://github.com/macmaia/catraca/blob/main/docs/reference.md). Also worth a look:
 
@@ -221,8 +221,9 @@ Every release ships only what has passed its acceptance criteria in tests that r
 | Evidence | a denial can be rebuilt from the record alone, without the original data |
 | Mode A (sealed plan) | untrusted content telling the model to call another tool doesn't change what runs |
 | Python decorator, MCP middleware | end-to-end examples run in CI |
+| MCP proxy | a call it refuses never reaches the server, and the connection stays up (tested against a stand-in server) |
 
-**Not in this release**, still being verified: adapters for Cedar, OPA, LangGraph and AgentDojo, and attack-success and utility numbers from an AgentDojo run with a real model. They'll ship once they pass the same bar. Also still to come: a standalone MCP proxy that sits in front of a third-party server (today there's server middleware only), the token cost of mode A measured next to CaMeL's, and a reference customer-service agent run with and without catraca.
+**Not in this release**, still being verified: adapters for Cedar, OPA, LangGraph and AgentDojo, and attack-success and utility numbers from an AgentDojo run with a real model. They'll ship once they pass the same bar. Also still to come: the MCP proxy run in front of a real third-party server, the token cost of mode A measured next to CaMeL's, and a reference customer-service agent run with and without catraca.
 
 ## Running the tests
 

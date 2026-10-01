@@ -12,6 +12,7 @@ from catraca.plan import (
     PlanTampered,
     QuarantineError,
     Schema,
+    SealedPlan,
     Step,
     ask,
     confirm,
@@ -202,10 +203,10 @@ class Sealing(unittest.TestCase):
         with self.assertRaises(PlanTampered):
             PlanRunner(gate, tools, caller=ANA, seal_key=KEY, quarantine=lambda *a: "x").run(sealed)
 
-    def test_seal_is_deterministic_and_needs_a_key(self):
+    def test_each_seal_is_a_new_plan_and_needs_a_key(self):
         a = Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY)
         b = Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY)
-        self.assertEqual((a.digest, a.mac), (b.digest, b.mac))
+        self.assertNotEqual(a.digest, b.digest)  # a fresh nonce each time
         with self.assertRaises(PlanError):
             Plan(SUMMARY_PLAN, policy=POLICY).seal(b"short")
         with self.assertRaises(PlanError):
@@ -233,7 +234,7 @@ class Building(unittest.TestCase):
     def test_planner_json_round_trip(self):
         plan = Plan(SUMMARY_PLAN, policy=POLICY, request="summarise")
         again = Plan.from_json(json.dumps(plan.to_json()), policy=POLICY, request="summarise")
-        self.assertEqual(plan.seal(KEY).digest, again.seal(KEY).digest)
+        self.assertEqual(plan.to_json(), again.to_json())
 
     def test_planner_only_sees_trusted_input(self):
         seen = []
@@ -345,3 +346,70 @@ class EditedAfterValidation(unittest.TestCase):
         p.steps[1].args["to"] = ask("who?", ref(0), Schema.text())
         with self.assertRaises(PlanError):
             p.seal(KEY)
+
+
+class RunsOnce(unittest.TestCase):
+    def runner(self, world, **kw):
+        gate = Gate(None, POLICY, egress=EGRESS, evidence=None)
+        return PlanRunner(gate, world.tools(), caller=ANA, seal_key=KEY, quarantine=lambda *a: "x", **kw)
+
+    def test_a_sealed_plan_runs_once(self):
+        world = World()
+        sealed = Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY)
+        r = self.runner(world)
+        r.run(sealed)
+        calls = list(world.calls)
+        with self.assertRaises(PlanError):
+            r.run(sealed)
+        self.assertEqual(world.calls, calls)
+        # Sealing again gives a new plan, which can run.
+        r.run(Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY))
+
+    def test_shared_store_stops_a_second_runner(self):
+        shared = set()
+        sealed = Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY)
+        self.runner(World(), ran=shared).run(sealed)
+        with self.assertRaises(PlanError):
+            self.runner(World(), ran=shared).run(sealed)
+
+
+    def test_runners_sharing_a_set_cant_both_run_it(self):
+        import threading
+        shared, sealed, results = set(), Plan(SUMMARY_PLAN, policy=POLICY).seal(KEY), []
+
+        def go():
+            try:
+                self.runner(World(), ran=shared).run(sealed)
+                results.append("ran")
+            except PlanError:
+                results.append("refused")
+
+        threads = [threading.Thread(target=go) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(sorted(results), ["ran"] + ["refused"] * 7)
+
+    def test_plans_sealed_without_a_nonce_are_refused(self):
+        import hashlib
+        import hmac
+        body = json.dumps({"v": 1, "request": "", **Plan(SUMMARY_PLAN, policy=POLICY).to_json()},
+                          sort_keys=True, separators=(",", ":")).encode()
+        old = SealedPlan(body, hashlib.sha256(body).hexdigest(), hmac.new(KEY, body, hashlib.sha256).hexdigest())
+        with self.assertRaises(PlanError):
+            self.runner(World()).run(old)
+
+class EnumAskNeedsConfirm(unittest.TestCase):
+    def test_enum_ask_alone_is_refused(self):
+        steps = [Step("read_inbox", {"folder": lit("inbox")}),
+                 Step("send_email", {"to": lit("ana@acme.com.br"),
+                                     "body": ask("urgent or not?", ref(0), Schema.enum("urgent", "normal"))})]
+        with self.assertRaises(PlanError):
+            Plan(steps, policy=POLICY)
+
+    def test_enum_ask_inside_confirm_is_fine(self):
+        steps = [Step("read_inbox", {"folder": lit("inbox")}),
+                 Step("send_email", {"to": lit("ana@acme.com.br"),
+                                     "body": confirm(ask("urgent or not?", ref(0), Schema.enum("urgent", "normal")))})]
+        Plan(steps, policy=POLICY)

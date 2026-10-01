@@ -35,6 +35,9 @@ The tools an agent can call, and what those calls can reach: money, messages, fi
 | Replaying a confirmation for a different call | Token is single use, bound to call, tool, caller, destination and an arg fingerprint. | Same. |
 | Tampering with the decision log | Hash chain plus HMAC checkpoints held elsewhere. Records after the latest checkpoint can still be cut off the end unnoticed, so checkpoint often. | Same. |
 | Changing a sealed plan between steps | Seal re-checked before each step, key held by the runner. | n/a |
+| Running a sealed plan a second time | Each sealed plan runs once per runner, or once overall with a shared `ran=` store. | n/a |
+| Replaying a signed MCP call | n/a | Each label signature carries a nonce, accepted once per process, or once overall with a shared `nonces=` store. |
+| Restoring an older saved registry state | n/a | `from_state(min_generation=...)` refuses a state older than the latest one saved. |
 
 ## Choosing among trusted values (mode B)
 
@@ -101,6 +104,9 @@ As ferramentas que o agente pode chamar e o que essas chamadas alcançam: dinhei
 | Reaproveitar uma confirmação em outra chamada | Token de uso único, preso a chamada, ferramenta, chamador, destino e impressão digital dos args. | Igual. |
 | Adulterar o registro de decisões | Cadeia de hash mais checkpoints HMAC guardados em outro lugar. Registros depois do último checkpoint ainda podem ser cortados do fim sem ninguém notar, então tire checkpoints com frequência. | Igual. |
 | Mudar um plano selado entre passos | Selo reconferido antes de cada passo, chave com quem executa. | n/a |
+| Rodar um plano selado uma segunda vez | Cada plano selado roda uma vez por executor, ou uma vez no total com um armazenamento `ran=` compartilhado. | n/a |
+| Reenviar uma chamada MCP assinada | n/a | Cada assinatura de rótulos leva um nonce, aceito uma vez por processo, ou uma vez no total com um armazenamento `nonces=` compartilhado. |
+| Restaurar um estado salvo mais antigo do registro | n/a | `from_state(min_generation=...)` recusa um estado mais antigo que o último salvo. |
 
 ## Escolha entre valores confiáveis (modo B)
 

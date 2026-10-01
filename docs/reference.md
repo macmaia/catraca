@@ -146,7 +146,7 @@ Replay works with pseudonymised users and tenants too: callers are checked first
 | user and tenant ids | keyed digest, and the same for `tenant:`/`user:` names inside labels | `pseudonymise_users=False` |
 | `destination` | scheme, host and port only, the rest is dropped | `include_preview=True` |
 | digest key | random per process | pass `key=` (16+ bytes, keep it out of the log) to correlate across runs |
-| redaction of free text (`detail`, window values) | built-in scrubber: emails, CPF and CNPJ (check digits validated), RG, CEP, phones, IPv4 and IPv6, IBANs, cards (Luhn), API keys, JWTs, bearer tokens, `password=`-style pairs, and any other run of 10+ digits. It does **not** catch names, addresses or other free-form personal data | `redactor=` with a proper PII tool, e.g. `tarja_redactor()` (experimental) |
+| redaction of free text (`detail`, window values) | built-in scrubber: emails, CPF and CNPJ (check digits validated), RG, CEP, phones, IPv4 and IPv6, IBANs, cards (Luhn), API keys, JWTs, bearer tokens, `password=`-style pairs, and any other run of 10+ digits. It does **not** catch names, addresses or other free-form personal data | `redactor=` with a proper PII tool, e.g. `tarja_redactor()`, which adds [Tarja](https://pypi.org/project/tarja/) for more Brazilian identifiers (car plates, CNS, NIS, CNJ) on top of the built-in one |
 
 ```
 python -m catraca.evidence verify decisions.jsonl
@@ -174,8 +174,8 @@ result = runner.run(plan.seal(key))
 ```
 
 * Args are `lit(...)` (fixed now, trusted), `ref(step, *path)` (an earlier step's output, untrusted), `ask(instruction, source, schema)` (a value pulled out of untrusted data by the quarantine model, which has no tools and whose answer has to fit the schema) or `confirm(...)` (a person approves the literal value, then it counts as trusted).
-* Consequential args (anything the policy doesn't relax) must be `lit` or `confirm`. So destinations are fixed before anything untrusted is read, or a human signs them off. A plan that breaks this doesn't build.
-* `seal(key)` freezes the plan (canonical encoding, SHA-256, HMAC). The runner decodes its own copy, checks the seal before the run and before every step, and has no way back to the planner.
+* Consequential args (anything the policy doesn't relax) must be `lit` or `confirm`. So destinations are fixed before anything untrusted is read, or a human signs them off. An `ask` with `Schema.enum` picks between options, so it needs `confirm` wherever it is. A plan that breaks these rules doesn't build.
+* `seal(key)` freezes the plan (canonical encoding with a fresh nonce, SHA-256, HMAC). The runner decodes its own copy, checks the seal before the run and before every step, and has no way back to the planner. Each sealed plan runs once: a second `run` of the same one raises `PlanError`. By default a runner remembers only its own runs, so create it once and reuse it. With several processes, pass every runner the same `ran=` store with an atomic `claim(digest)` (Redis `SET NX`, a unique key in a table).
 * Every step still goes through the gate (policy, egress, evidence) with labels fixed at the edges. So an address the quarantine was tricked into writing in a body is stopped by egress.
 * `plan_with(planner, request, policy=..., tools=...)` asks a planner model for the plan. It only ever sees the request and the tool list.
 
@@ -186,7 +186,8 @@ Limits: plans are straight-line, no loops or branches that depend on data. Side 
 | Adapter | Where | Notes |
 |---|---|---|
 | Python decorator | `catraca.adapters.python.guarded` | `guarded(gate, caller=fn, tool=None, destination=None, approve=None)`. `caller` is a function with no args that returns the `Caller` for the current request, called on every call. `approve(decision)` shows `decision.confirmation` to the person and returns `True` only on an explicit yes (sync or async). Without `approve`, a confirmation raises `ConfirmationRequired`. Args are bound by name, defaults included, and pre-bound `functools.partial` args are checked too. `*args`/`**kwargs` functions are refused. Runs the function only on ALLOW, sync or async |
-| MCP server middleware | `catraca.adapters.mcp.catraca_middleware` | `async (ctx, call_next)`. The SDK marks this hook provisional. A server can't see the client's context, so args are UNTRUSTED unless the client signs its labels (`sign_labels`, checked with `label_key=`, bound to the tool, the values and a 5-minute window) or you pass `trust_client=True`. Refusals are the SDK's own error, code -32001 |
+| MCP server middleware | `catraca.adapters.mcp.catraca_middleware` | `async (ctx, call_next)`. The SDK marks this hook provisional. A server can't see the client's context, so args are UNTRUSTED unless the client signs its labels (`sign_labels`, checked with `label_key=`, bound to the tool, the values, a 5-minute window and a nonce that's accepted once per process, or once overall if the workers share a `nonces=` store with an atomic `first_use`) or you pass `trust_client=True`. Refusals are the SDK's own error, code -32001 |
+| MCP proxy | `catraca-mcp-proxy` (`catraca.adapters.mcp_proxy`) | `catraca-mcp-proxy --policy policy.json --egress egress.json --tenant acme --user agent --evidence decisions.jsonl -- <server command>`. Starts the server over stdio and checks every `tools/call` before the server sees it. A refused call gets a JSON-RPC error (code -32001) and the connection stays up. It forwards its own re-encoding of what it checked, and refuses duplicate keys and batches that hold a tool call. Labels work as in the middleware (`--label-key-env`, `--trust-client`) |
 
 Each one has a runnable example in `examples/`, and CI runs them (the MCP one against the real SDK).
 
@@ -223,7 +224,7 @@ The registry follows the model's context window, not the turn. Invariant: there'
 * `new_turn()` just bumps a counter. It doesn't forget anything.
 * `forget(id, reason=...)` is an explicit act and it's logged in `forget_log`. If you're not sure something's left the context, don't forget it.
 * `summarise(text, replaces=[ids])` records the summary with the join of the whole window and only then forgets the originals. A summary of a tainted window is born UNTRUSTED.
-* `export_state(key=...)` and `ContextRegistry.from_state(channels, state, key=...)` move the window between processes, for example to keep it next to your agent framework's checkpoint. The state holds the snippet texts, so store it like the conversation. Without the key it's refused unless you pass `trust_unsigned=True`, because whoever can edit the state could relabel an untrusted snippet as trusted.
+* `export_state(key=...)` and `ContextRegistry.from_state(channels, state, key=...)` move the window between processes, for example to keep it next to your agent framework's checkpoint. The state holds the snippet texts, so store it like the conversation. Without the key it's refused unless you pass `trust_unsigned=True`, because whoever can edit the state could relabel an untrusted snippet as trusted. Each export carries a `generation` number and `saved_at`. Keep the latest generation you stored and pass `min_generation=` (and `max_age=` in seconds, if you like) to `from_state`, so an older signed state can't be put back.
 
 ### Checking the invariant with `observe`
 

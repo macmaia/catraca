@@ -30,7 +30,7 @@ identifiers and secrets: emails, CPF, CNPJ, RG, CEP, phones, card numbers,
 IBANs, IPs, API keys, tokens and passwords in ``key=value`` pairs, plus any
 long run of digits. It does NOT catch names, street addresses or other
 free-form personal data. If those can turn up in your text, pass ``redactor=``
-a proper PII tool. ``tarja_redactor()`` plugs in Tarja (experimental, optional).
+a proper PII tool. ``tarja_redactor()`` adds Tarja (optional) for more Brazilian identifiers.
 
 Export for SIEMs: ``to_ecs`` (Elastic Common Schema) and ``to_cef`` (ArcSight
 CEF). CLI::
@@ -218,10 +218,13 @@ def _redact_uncached(text: str) -> str:
 
 
 def tarja_redactor(module: Any = None) -> Callable[[str], str]:
-    """Use Tarja for redaction. Needs the ``tarja`` package (optional).
+    """Use Tarja for redaction. Needs the ``tarja`` package (optional,
+    ``pip install tarja``).
 
-    Experimental: Tarja's API isn't published yet, so this looks for a
-    ``redact()`` or ``anonymize()`` function and may change when it is.
+    Tarja masks Brazilian identifiers the built-in scrubber doesn't know
+    (car plates, CNS, NIS, CNJ case numbers and others). Its ``mask()`` runs first, then the
+    built-in ``redact()``, so nothing the built-in covers is lost. Neither
+    catches names or addresses.
     """
     if module is None:
         try:
@@ -230,15 +233,15 @@ def tarja_redactor(module: Any = None) -> Callable[[str], str]:
             raise ImportError("tarja_redactor() needs the 'tarja' package. Without it, the built-in "
                               "redact() is used, which covers structured identifiers and secrets "
                               "but not names or addresses.") from None
-    fn = getattr(module, "redact", None) or getattr(module, "anonymize", None)
+    fn = getattr(module, "mask", None)
     if not callable(fn):
-        raise TypeError("the tarja module has no redact() or anonymize() function.")
+        raise TypeError("the tarja module has no mask() function (tarja 0.5 or newer).")
 
     def run(text: str) -> str:
         out = fn(text)
         if not isinstance(out, str):
             raise TypeError("tarja returned something that isn't a string.")
-        return out
+        return redact(out)
 
     return run
 

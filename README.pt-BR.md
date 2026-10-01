@@ -193,7 +193,7 @@ Só Python 3.10+. Os números de detecção têm que bater exatamente. O tempo d
 * **Saída**: descobre para onde a chamada manda coisas de fato e confere contra uma lista de permissões e contra a procedência.
 * **Evidência**: um registro encadeado e com dados mascarados de toda decisão, que dá para verificar e reproduzir.
 * **Modo A**: o plano selado, para quando você precisa da garantia estrutural.
-* **Adaptadores**: decorador Python (síncrono e assíncrono) e middleware para servidor MCP.
+* **Adaptadores**: decorador Python (síncrono e assíncrono), middleware para servidor MCP, e um proxy stdio que põe o portão na frente de qualquer servidor MCP, inclusive um que você não escreveu (`catraca-mcp-proxy`).
 
 Os detalhes, os padrões e cada ajuste estão na [referência](https://github.com/macmaia/catraca/blob/main/docs/reference.pt-BR.md). Também vale olhar:
 
@@ -221,8 +221,9 @@ Cada versão traz só o que passou nos critérios de aceite, em testes que rodam
 | Evidência | uma negação pode ser reconstruída só com o registro, sem o dado original |
 | Modo A (plano selado) | conteúdo não confiável mandando o modelo chamar outra ferramenta não muda o que roda |
 | Decorador Python, middleware MCP | exemplos ponta a ponta rodam no CI |
+| Proxy MCP | uma chamada recusada nunca chega ao servidor, e a conexão continua de pé (testado com um servidor substituto) |
 
-**Fora desta versão**, ainda em verificação: adaptadores para Cedar, OPA, LangGraph e AgentDojo, e os números de sucesso de ataque e utilidade de uma execução do AgentDojo com um modelo de verdade. Entram quando passarem pelo mesmo critério. Também ainda por vir: um proxy MCP independente, que fica na frente de um servidor de terceiros (hoje há só o middleware de servidor), o custo em tokens do modo A medido ao lado do CaMeL, e um agente de atendimento de referência rodado com e sem a catraca.
+**Fora desta versão**, ainda em verificação: adaptadores para Cedar, OPA, LangGraph e AgentDojo, e os números de sucesso de ataque e utilidade de uma execução do AgentDojo com um modelo de verdade. Entram quando passarem pelo mesmo critério. Também ainda por vir: o proxy MCP rodado na frente de um servidor de terceiros de verdade, o custo em tokens do modo A medido ao lado do CaMeL, e um agente de atendimento de referência rodado com e sem a catraca.
 
 ## Rodando os testes
 

@@ -36,7 +36,7 @@ catraca sits between an agent and its tools. Every tool call goes through one fu
 | `gate.py`, `confirmations.py` | The single decision point. Fails closed, and a `Decision` can't be used as a bool by mistake. |
 | `evidence.py` | Hash-chained JSONL records, HMAC digests of values, pseudonymised users, checkpoints, `verify`, `replay`, `stats`, ECS and CEF export. |
 | `plan.py` | Mode A. Plans built from trusted input, sealed with HMAC, re-checked before every step, run through the same gate. |
-| `adapters/python.py`, `adapters/mcp.py` | Thin wrappers: a decorator for plain functions and middleware for MCP servers. |
+| `adapters/python.py`, `adapters/mcp.py`, `adapters/mcp_proxy.py` | Thin wrappers: a decorator for plain functions, middleware for MCP servers, and a stdio proxy in front of any MCP server. |
 
 ## Design rules
 
@@ -80,7 +80,7 @@ O diagrama acima vale para as duas línguas. A ordem dentro do portão é:
 | `gate.py`, `confirmations.py` | O ponto único de decisão. Falha fechado, e um `Decision` não pode ser usado como bool por engano. |
 | `evidence.py` | Registros JSONL encadeados por hash, digests HMAC dos valores, usuários pseudonimizados, checkpoints, `verify`, `replay`, `stats`, exportação ECS e CEF. |
 | `plan.py` | Modo A. Planos feitos só de entrada confiável, selados com HMAC, reconferidos antes de cada passo, rodados pelo mesmo portão. |
-| `adapters/python.py`, `adapters/mcp.py` | Invólucros finos: um decorador para funções comuns e um middleware para servidores MCP. |
+| `adapters/python.py`, `adapters/mcp.py`, `adapters/mcp_proxy.py` | Invólucros finos: um decorador para funções comuns, um middleware para servidores MCP e um proxy stdio na frente de qualquer servidor MCP. |
 
 ## Regras de projeto
 

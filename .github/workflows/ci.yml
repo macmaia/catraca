@@ -141,6 +141,20 @@ jobs:
       - run: curl -sSf -o tlds.txt https://data.iana.org/TLD/tlds-alpha-by-domain.txt
       - run: python -m catraca.tlds check tlds.txt | tee -a "$GITHUB_STEP_SUMMARY"
 
+  tarja:
+    name: Redaction with the real Tarja
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install "tarja>=0.5"
+      - name: Tarja tests, and fail if they got skipped
+        run: python -m tests.run_strict tests.test_evidence --forbid "tarja"
+
   mcp:
     name: MCP middleware against the real SDK
     runs-on: ubuntu-latest

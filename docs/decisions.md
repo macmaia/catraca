@@ -57,6 +57,14 @@ Two derived forms are trusted: the host of a URL the user wrote, and a phone num
 
 An arg that accepts any integrity, where even the join of the whole window may flow to the caller, gets the window's label without being resolved piece by piece. **Why:** long free-text bodies were the slowest thing the gate did, and the answer was known in advance. The window's label is never looser than what resolving would find, and a test compares both paths. **Cost:** the evidence record shows such an arg as CONSERVATIVE with the window's label, not its coverage.
 
+## 14. Names in the code are in English
+
+Labels, verdicts, reasons and methods use English names (`TRUSTED`, `ALLOW`, `REQUIRE_CONFIRMATION`, `forget`), even though the project started in Portuguese. **Why:** the names are part of the public contract, people match on them in alerts and dashboards, and English is what most teams building agents read. **Cost:** a Portuguese reader meets English terms in the code. The Portuguese docs explain each one where it first appears.
+
+## 15. Signed things are used once
+
+A sealed plan runs once, a signed MCP label is accepted once, and a saved registry state carries a generation number so an older one can't replace a newer one. **Why:** a valid signature proves who made something, not that it's fresh. Without these, a plan, a call or a state captured once could be used again. **Cost:** several workers need a shared store for plans that already ran, and an app that saves registry state has to keep the latest generation somewhere.
+
 ---
 
 <a id="decisoes-de-desenho-pt-br"></a>
@@ -116,3 +124,11 @@ Duas formas derivadas são confiáveis: o host de uma URL que o usuário escreve
 ## 13. Args afrouxados pulam o trabalho quando ele não muda o veredito
 
 Um arg que aceita qualquer integridade, e para o qual até a junção da janela inteira pode ir ao chamador, recebe o rótulo da janela sem ser resolvido pedaço por pedaço. **Por quê:** corpos longos de texto livre eram a coisa mais lenta que o portão fazia, e a resposta já era conhecida. O rótulo da janela nunca é mais frouxo do que a resolução acharia, e um teste compara os dois caminhos. **Custo:** o registro de evidência mostra esse arg como CONSERVATIVE com o rótulo da janela, não com a cobertura dele.
+
+## 14. Os nomes no código são em inglês
+
+Rótulos, vereditos, motivos e métodos têm nomes em inglês (`TRUSTED`, `ALLOW`, `REQUIRE_CONFIRMATION`, `forget`), embora o projeto tenha começado em português. **Por quê:** os nomes fazem parte do contrato público, as pessoas filtram por eles em alertas e painéis, e inglês é o que a maioria dos times que constroem agentes lê. **Custo:** quem lê em português encontra termos em inglês no código. A documentação em português explica cada um onde ele aparece pela primeira vez.
+
+## 15. O que é assinado vale uma vez só
+
+Um plano selado roda uma vez, um rótulo MCP assinado é aceito uma vez, e um estado salvo do registro leva um número de geração para que um mais antigo não substitua um mais novo. **Por quê:** uma assinatura válida prova quem fez a coisa, não que ela é recente. Sem isso, um plano, uma chamada ou um estado capturado uma vez poderia ser usado de novo. **Custo:** vários workers precisam de um armazenamento compartilhado para os planos que já rodaram, e uma aplicação que salva o estado do registro precisa guardar a última geração em algum lugar.

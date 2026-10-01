@@ -46,6 +46,7 @@ Changelog = "https://github.com/macmaia/catraca/blob/main/CHANGELOG.md"
 
 [project.scripts]
 catraca-evidence = "catraca.evidence:main"
+catraca-mcp-proxy = "catraca.adapters.mcp_proxy:main"
 
 [tool.setuptools.packages.find]
 include = ["catraca", "catraca.*"]

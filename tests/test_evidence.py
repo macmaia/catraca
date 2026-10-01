@@ -419,16 +419,28 @@ class Redaction(unittest.TestCase):
         self.assertEqual(ev.redact("order 1234 shipped"), "order 1234 shipped")
 
     def test_tarja_hook(self):
-        fake = types.SimpleNamespace(redact=lambda s: s.replace("secret", "[X]"))
-        self.assertEqual(ev.tarja_redactor(fake)("a secret"), "a [X]")
+        fake = types.SimpleNamespace(mask=lambda s: s.replace("secret", "[X]"))
+        # Tarja runs first, then the built-in scrubber, so the email goes too.
+        self.assertEqual(ev.tarja_redactor(fake)("a secret for ana@acme.com.br"),
+                         ev.redact("a [X] for ana@acme.com.br"))
+        self.assertNotIn("ana@", ev.tarja_redactor(fake)("ana@acme.com.br"))
         with self.assertRaises(TypeError):
             ev.tarja_redactor(types.SimpleNamespace())
         with self.assertRaises(TypeError):
-            ev.tarja_redactor(types.SimpleNamespace(redact=lambda s: 1))("x")
+            ev.tarja_redactor(types.SimpleNamespace(mask=lambda s: 1))("x")
         import importlib.util
         if importlib.util.find_spec("tarja") is None:
             with self.assertRaisesRegex(ImportError, "tarja"):
                 ev.tarja_redactor()
+
+    @unittest.skipIf(__import__("importlib").util.find_spec("tarja") is None, "tarja isn't installed")
+    def test_with_the_real_tarja(self):
+        # A car plate, which the built-in scrubber doesn't know.
+        text = "placa ABC1D23, CPF 529.982.247-25, ana@acme.com.br"
+        self.assertIn("ABC1D23", ev.redact(text))
+        out = ev.tarja_redactor()(text)
+        for leak in ("ABC1D23", "529.982", "ana@"):
+            self.assertNotIn(leak, out, leak)
 
 
 class BuiltinPatterns(unittest.TestCase):
@@ -498,7 +510,7 @@ class BuiltinPatterns(unittest.TestCase):
         doc = ev.redact.__doc__
         self.assertIn("NOT catch names", doc)
         self.assertIn("redactor=", doc)
-        self.assertIn("Experimental", ev.tarja_redactor.__doc__)
+        self.assertIn("names or addresses", ev.tarja_redactor.__doc__)
         self.assertNotIn("fine for logs", Path(ev.__file__).read_text(encoding="utf-8"))
 
 

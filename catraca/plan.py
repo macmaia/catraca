@@ -44,9 +44,11 @@ import hashlib
 import hmac
 import json
 import math
+import os
 import re
+import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, MutableSet, Optional, Protocol, Sequence, Tuple, Union
 
 from .errors import CallDenied, CatracaError
 from .gate import Caller, Decision, EdgeLabel, Gate, Verdict
@@ -335,7 +337,10 @@ class Plan:
         # Steps are plain objects and could have been edited since the plan was
         # built, so check again right before sealing.
         _validate(self.steps, self._policy)
-        body = json.dumps({"v": PLAN_VERSION, "request": self.request, **self.to_json()},
+        # A fresh nonce, so two seals of the same plan are different plans and
+        # the runner can refuse to run any one of them twice.
+        body = json.dumps({"v": PLAN_VERSION, "nonce": os.urandom(16).hex(), "request": self.request,
+                           **self.to_json()},
                           sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         digest = hashlib.sha256(body).hexdigest()
         mac = hmac.new(bytes(key), body, hashlib.sha256).hexdigest()
@@ -356,6 +361,10 @@ def _validate(steps: Tuple[Step, ...], policy: Any) -> None:
             for r in _refs(e):
                 if not 0 <= r.step < i:
                     raise PlanError(f"step {i}.{name}: can only refer to an earlier step, not {r.step}")
+            if isinstance(e, Ask) and e.schema.kind == "enum":
+                # Picking one of a closed set of values is a decision, and the
+                # data the quarantine reads gets to make it. So a person signs it off.
+                raise PlanError(f"step {i}.{name}: an ask with an enum picks between options, so wrap it in confirm.")
             if name not in relaxed and not isinstance(e, (Lit, Confirm)):
                 raise PlanError(
                     f"step {i}.{name} is consequential, so it must be fixed now (lit) or approved by the "
@@ -397,6 +406,32 @@ class RunResult:
         return [s.tool for s in self.steps if s.ran]
 
 
+class RunStore(Protocol):
+    """Remembers which sealed plans have started. ``claim`` must be atomic:
+    True the first time a digest is claimed, False after that. Share one
+    between runners in different processes (Redis ``SET NX``, a unique key in a
+    table), or each runner only knows about its own runs."""
+
+    def claim(self, digest: str) -> bool: ...
+
+
+class MemoryRuns:
+    """The default store, for one process. A plain set can be passed instead."""
+
+    _lock = threading.Lock()
+
+    def __init__(self, seen: Optional[MutableSet[str]] = None) -> None:
+        self._seen: MutableSet[str] = set() if seen is None else seen
+
+    def claim(self, digest: str) -> bool:
+        # One lock for every instance, so two runners sharing a set can't both win.
+        with MemoryRuns._lock:
+            if digest in self._seen:
+                return False
+            self._seen.add(digest)
+            return True
+
+
 Quarantine = Callable[[str, Any, Schema], Any]
 """``quarantine(instruction, data, schema) -> value``. A model call with no tools."""
 
@@ -406,7 +441,11 @@ Approver = Callable[[int, str, Any], bool]
 
 class PlanRunner:
     def __init__(self, gate: Gate, tools: Mapping[str, Callable[..., Any]], *, caller: Caller, seal_key: bytes,
-                 quarantine: Optional[Quarantine] = None, approve: Optional[Approver] = None) -> None:
+                 quarantine: Optional[Quarantine] = None, approve: Optional[Approver] = None,
+                 ran: Union[RunStore, MutableSet[str], None] = None) -> None:
+        """Each sealed plan runs once. ``ran`` keeps track: by default it's this
+        runner's own memory, so create the runner once and reuse it, or pass a
+        ``RunStore`` shared by every runner that can see the same plans."""
         if not isinstance(seal_key, (bytes, bytearray)) or len(seal_key) < 16:
             raise PlanError("seal_key must be at least 16 bytes.")
         self._key = bytes(seal_key)
@@ -415,10 +454,17 @@ class PlanRunner:
         self._caller = caller
         self._quarantine = quarantine
         self._approve = approve
+        self._ran: RunStore = ran if ran is not None and hasattr(ran, "claim") \
+            else MemoryRuns(ran)
 
     def run(self, sealed: SealedPlan) -> RunResult:
         _check_seal(sealed, self._key)
         data = json.loads(sealed.body.decode("utf-8"))
+        if not isinstance(data.get("nonce"), str):
+            raise PlanError("this plan was sealed without a nonce (catraca 0.1). Seal it again.")
+        # Claimed before the first step, so a run that stops halfway can't be retried either.
+        if not self._ran.claim(sealed.digest):
+            raise PlanError("this sealed plan has already run. Seal it again to run it again.")
         steps = [(st["tool"], {k: _expr_from_json(v) for k, v in st["args"].items()}, st.get("destination"))
                  for st in data["steps"]]
         # The seal proves who wrote the plan, not that it's well formed. Check
@@ -511,4 +557,4 @@ def plan_with(planner: Callable[[str, List[dict]], Any], request: str, *, policy
 
 
 __all__ = ["Plan", "PlanError", "PlanRunner", "PlanTampered", "QuarantineError", "RunResult", "Schema",
-           "SealedPlan", "Step", "StepRecord", "ask", "confirm", "lit", "plan_with", "ref", "CallDenied"]
+           "SealedPlan", "Step", "StepRecord", "RunStore", "MemoryRuns", "ask", "confirm", "lit", "plan_with", "ref", "CallDenied"]
