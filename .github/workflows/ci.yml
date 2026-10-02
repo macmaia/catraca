@@ -117,8 +117,6 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 340
-    # Non-blocking until the first real run sets a baseline score.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -127,7 +125,25 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "mutmut>=3,<4" "pytest>=8,<9"
-      - run: mutmut run --max-children 4 || true  # surviving mutants are reported below, not a failure
+      - run: mutmut run --max-children 4 2>&1 | tee mutmut.log || true
+      - name: Score must not drop below the floor
+        # First full run (2 Oct 2026): 5758 of 8309 mutants killed, 69.3%. Raise the floor as tests improve.
+        env:
+          FLOOR: "69.0"
+        run: |
+          python - <<'PY'
+          import os, re, sys
+          text = open("mutmut.log", encoding="utf-8", errors="replace").read()
+          runs = re.findall(r"(\d+)/(\d+)\s+\S+\s+(\d+)", text)
+          if not runs:
+              sys.exit("no mutmut progress line found, so the run didn't happen")
+          done, total, killed = map(int, runs[-1])
+          if done != total:
+              sys.exit(f"mutmut stopped at {done} of {total} mutants")
+          score = 100 * killed / total
+          print(f"killed {killed} of {total} mutants: {score:.1f}% (floor {os.environ['FLOOR']}%)")
+          sys.exit(0 if score >= float(os.environ["FLOOR"]) else 1)
+          PY
       - name: Results, even if the run was cut short
         if: always()
         run: mutmut results | tee mutation-results.txt | tail -300 >> "$GITHUB_STEP_SUMMARY"
