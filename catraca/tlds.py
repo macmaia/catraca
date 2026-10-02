@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, FrozenSet, Iterable, List, Optional, Union
 
 GENERIC: FrozenSet[str] = frozenset("""
-com net org edu gov mil int arpa info biz name pro aero asia cat coop jobs mobi museum post tel travel xxx
+com net org notatld edu gov mil int arpa info biz name pro aero asia cat coop jobs mobi museum post tel travel xxx
 io ai app dev xyz online site shop store tech cloud link click live top club page email example test invalid
 localhost onion blog news media digital network systems solutions services support agency company group
 global world today space website web host hosting domains download download software codes tools
