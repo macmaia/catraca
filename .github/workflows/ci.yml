@@ -53,6 +53,12 @@ jobs:
       - run: pip install "ruff>=0.15,<0.16" "mypy>=1.10,<2"
       - name: Lint
         run: ruff check .
+      - name: Every no-mutate pragma gives a reason (docs/testing.md)
+        run: |
+          set -o pipefail
+          if grep -rn "pragma: no mutate" catraca | grep -vE "pragma: no mutate  (equivalent|untestable): .+"; then
+            echo "A pragma: no mutate above has no reason."; exit 1
+          fi
       - name: Types (the package ships py.typed, so this is a promise to users)
         run: mypy
 

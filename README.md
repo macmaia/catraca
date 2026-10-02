@@ -203,6 +203,7 @@ The details, defaults and every knob are in the [reference](https://github.com/m
 * Ideas this builds on: CaMeL (Debenedetti et al., 2025), FIDES (Costa, Köpf et al., 2025), the dual-LLM pattern and Spotlighting (Hines et al., 2024).
 * [docs/decisions.md](https://github.com/macmaia/catraca/blob/main/docs/decisions.md): the design decisions, why each was taken and what it costs.
 * [docs/audit-and-privacy.md](https://github.com/macmaia/catraca/blob/main/docs/audit-and-privacy.md): what the decision log holds and proves, keys, retention, LGPD and GDPR.
+* [docs/testing.md](https://github.com/macmaia/catraca/blob/main/docs/testing.md): how the tests are held to account (mutation testing) and which lines are kept out of it.
 * [SECURITY.md](https://github.com/macmaia/catraca/blob/main/SECURITY.md): how to report a vulnerability privately.
 * [CONTRIBUTING.md](https://github.com/macmaia/catraca/blob/main/CONTRIBUTING.md): how to run things, house style and how to add a case.
 * [CHANGELOG.md](https://github.com/macmaia/catraca/blob/main/CHANGELOG.md).

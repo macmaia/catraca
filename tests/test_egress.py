@@ -478,3 +478,40 @@ class ScanCoverage(unittest.TestCase):
 
     def test_a_file_name_in_a_url_path_isnt_a_host(self):
         self.assertEqual(self.hosts("https://ok.example/docs/report.md"), {"ok.example"})
+
+
+class PlainTextScans(unittest.TestCase):
+    """Plain ASCII has a single decoded view, so each scan rule is seen on its own."""
+
+    def found(self, text):
+        return [(t.kind, t.raw, t.host, t.ip) for t in extract("a", text)]
+
+    def test_mailto_is_an_email_not_a_url(self):
+        self.assertEqual(self.found("mailto:ana@acme.com"), [("email", "ana@acme.com", "acme.com", None)])
+
+    def test_email_to_an_ip_literal(self):
+        self.assertEqual(self.found("ana@[10.0.0.1]"), [("email", "ana@[10.0.0.1]", "10.0.0.1", "10.0.0.1")])
+
+    def test_bare_host_keeps_its_path_in_raw(self):
+        self.assertEqual(self.found("see evil.sh/x now"), [("host", "evil.sh/x", "evil.sh", None)])
+
+    def test_a_file_name_doesnt_stop_the_scan(self):
+        self.assertEqual(self.found("script.py then evil.io"), [("host", "evil.io", "evil.io", None)])
+
+    def test_a_repeated_url_doesnt_stop_the_scan(self):
+        self.assertEqual(self.found("https://ok.com/a https://ok.com/a evil.io"),
+                         [("url", "https://ok.com/a", "ok.com", None), ("host", "evil.io", "evil.io", None)])
+
+    def test_every_nested_url_is_found(self):
+        hosts = [h for _, _, h, _ in self.found("https://ok.com/?next=https://evil.io/x https://b.io/?u=https://c.io")]
+        self.assertEqual(sorted(set(hosts)), ["b.io", "c.io", "evil.io", "ok.com"])
+
+    def test_a_loose_url_inside_a_url_doesnt_stop_the_scan(self):
+        hosts = {h for _, _, h, _ in self.found("https://ok.com/?x=http:/a.io http:/evil.io")}
+        self.assertIn("evil.io", hosts)
+
+    def test_a_bare_host_after_a_www_link(self):
+        self.assertIn(("host", "evil.io", "evil.io", None), self.found("www.ok.com/p evil.io"))
+
+    def test_trailing_dot_on_a_bare_host(self):
+        self.assertEqual([h for _, _, h, _ in self.found("go to evil.io. now")], ["evil.io"])

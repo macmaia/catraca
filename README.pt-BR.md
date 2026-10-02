@@ -203,6 +203,7 @@ Os detalhes, os padrões e cada ajuste estão na [referência](https://github.co
 * Ideias em que se apoia: CaMeL (Debenedetti et al., 2025), FIDES (Costa, Köpf et al., 2025), o padrão dual-LLM e o Spotlighting (Hines et al., 2024).
 * [docs/decisions.md](https://github.com/macmaia/catraca/blob/main/docs/decisions.md): as decisões de desenho, por que cada uma foi tomada e o que custa.
 * [docs/audit-and-privacy.md](https://github.com/macmaia/catraca/blob/main/docs/audit-and-privacy.md): o que o registro de decisões guarda e prova, chaves, retenção, LGPD e GDPR.
+* [docs/testing.md](https://github.com/macmaia/catraca/blob/main/docs/testing.md): como os testes são cobrados (teste de mutação) e quais linhas ficam fora dele (em inglês).
 * [SECURITY.md](https://github.com/macmaia/catraca/blob/main/SECURITY.md): como relatar uma vulnerabilidade em privado.
 * [CONTRIBUTING.md](https://github.com/macmaia/catraca/blob/main/CONTRIBUTING.md#português-brasil): como rodar as coisas, estilo da casa e como acrescentar um caso.
 * [CHANGELOG.md](https://github.com/macmaia/catraca/blob/main/CHANGELOG.md).

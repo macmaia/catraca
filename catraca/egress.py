@@ -264,11 +264,11 @@ def _scan_text(arg: str, text: str, out: List[Target], depth: int = 0, via: Opti
 
     def add(t: Optional[Target]) -> bool:
         if t is None or (t.kind, t.raw, t.host) in seen:
-            return False
+            return False  # pragma: no mutate  equivalent: a repeat's nested URLs were already scanned
         if len(out) >= _MAX_TARGETS:
             # Too many to check one by one. Don't drop the rest in silence.
             _mark_unknown(arg, text, via, out)
-            return False
+            return False  # pragma: no mutate  equivalent: past the cap the arg is already UNKNOWN_HOST
         seen.add((t.kind, t.raw, t.host))
         out.append(t)
         return True
@@ -279,23 +279,23 @@ def _scan_text(arg: str, text: str, out: List[Target], depth: int = 0, via: Opti
             grouped = rx is _SCHEMELESS_RE or rx is _BARE_SCHEMELESS_RE
             g = m.group(1) if grouped else m.group(0)
             start = m.start(1) if grouped else m.start()
-            if any(a <= start < b for a, b in spans):
+            if any(a <= start < b for a, b in spans):  # pragma: no mutate  equivalent: no input found, docs/testing.md
                 continue
             spans.append((start, start + len(g)))
-            if rx is _URL_RE and m.group(1).lower() == "mailto":
-                continue  # handled by the email scan
+            if rx is _URL_RE and m.group(1).lower() == "mailto":  # pragma: no mutate  equivalent: same email target
+                continue  # pragma: no mutate  equivalent: the email scan finds the rest
             ts = _url_targets(arg, g, via)
             first = True
             for t in ts:
-                if add(t) and first and t.host:
+                if add(t) and first and t.host:  # pragma: no mutate  equivalent: a hostless URL is always refused
                     _nested(arg, t, g, depth, out)
-                first = False
+                first = False  # pragma: no mutate  equivalent: later readings of the same URL are deduplicated
     for m in _EMAIL_SCAN_RE.finditer(text):
-        if any(a <= m.start() < b for a, b in spans):
+        if any(a <= m.start() < b for a, b in spans):  # pragma: no mutate  equivalent: no input found, docs/testing.md
             # Part of a URL (userinfo or query). The URL's already been checked.
             continue
         addr = m.group(0)
-        local, domain = addr.rsplit("@", 1)
+        local, _, domain = addr.rpartition("@")
         ip = _std_ip(domain) if domain.startswith("[") else None
         if ip is not None:
             add(Target(arg, "email", addr, str(ip), address=addr.lower(), ip=str(ip), via=via))
@@ -305,11 +305,12 @@ def _scan_text(arg: str, text: str, out: List[Target], depth: int = 0, via: Opti
         spans.append((m.start(), m.end()))
     if bare_hosts:
         for m in _BARE_HOST_RE.finditer(text):
-            if any(a <= m.start() < b for a, b in spans):
+            if any(a <= m.start() < b for a, b in spans):  # pragma: no mutate  equivalent: no input found, docs/testing.md
                 continue
-            if not counts_as_host(m.group(1).rstrip(".").split("."), bool(m.group(2)), generic=_TLDS.get()):
+            # counts_as_host drops empty labels, so a trailing dot needs no stripping here.
+            if not counts_as_host(m.group(1).split("."), bool(m.group(2)), generic=_TLDS.get()):
                 continue
-            ht = _url_target(arg, "https://" + m.group(0), via)
+            ht = _url_target(arg, "https://" + m.group(0), via)  # pragma: no mutate  equivalent: path doesn't change host
             if ht is not None:
                 add(Target(arg, "host", m.group(0), ht.host, scheme=None, port=ht.port, ip=ht.ip, via=via))
 
