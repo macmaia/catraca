@@ -129,21 +129,21 @@ class Mcp(unittest.TestCase):
         mw = catraca_middleware(g, caller_for=lambda ctx: ANA, label_key=self.KEY, error=PermissionError)
         args = {"to": "ana@acme.com.br"}
         good = {"name": "send_email", "arguments": args,
-                "_meta": {META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email")}}
+                "_meta": {META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email", caller=ANA)}}
         self.assertEqual(self.run_mw(mw, Ctx("tools/call", good)), "tool ran")
         # Same labels moved onto a different value: signature no longer matches.
         moved = dict(good, arguments={"to": "thief@evil.io"})
         with self.assertRaises(PermissionError):
             self.run_mw(mw, Ctx("tools/call", moved))
-        forged = dict(good, _meta={META_KEY: sign_labels({"to": "TRUSTED"}, args, b"x" * 32, tool="send_email")})
+        forged = dict(good, _meta={META_KEY: sign_labels({"to": "TRUSTED"}, args, b"x" * 32, tool="send_email", caller=ANA)})
         with self.assertRaises(PermissionError):
             self.run_mw(mw, Ctx("tools/call", forged))
         # Signed for another tool, or too old: both fall back to UNTRUSTED.
-        other_tool = dict(good, _meta={META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="search")})
+        other_tool = dict(good, _meta={META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="search", caller=ANA)})
         with self.assertRaises(PermissionError):
             self.run_mw(mw, Ctx("tools/call", other_tool))
         import time as _t
-        stale = dict(good, _meta={META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email",
+        stale = dict(good, _meta={META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email", caller=ANA,
                                                         issued_at=int(_t.time()) - 3600)})
         with self.assertRaises(PermissionError):
             self.run_mw(mw, Ctx("tools/call", stale))
@@ -155,7 +155,7 @@ class Mcp(unittest.TestCase):
         mw = catraca_middleware(g, caller_for=lambda ctx: ANA, label_key=self.KEY, error=PermissionError)
         args = {"to": "ana@acme.com.br"}
         call = {"name": "send_email", "arguments": args,
-                "_meta": {META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email")}}
+                "_meta": {META_KEY: sign_labels({"to": "TRUSTED"}, args, self.KEY, tool="send_email", caller=ANA)}}
         self.assertEqual(self.run_mw(mw, Ctx("tools/call", call)), "tool ran")
         # The same signed call sent again is a replay, so its labels don't count.
         with self.assertRaises(PermissionError):
@@ -216,7 +216,7 @@ class ThirdPassAdapters(unittest.TestCase):
         g, _ = gate(("Email ana@acme.com.br", "user"))
         key = b"k" * 32
         mw = catraca_middleware(g, caller_for=lambda ctx: ANA, label_key=key, error=PermissionError)
-        signed = sign_labels({"to": "TRUSTED"}, {"to": "b'ana@acme.com.br'"}, key, tool="send_email")
+        signed = sign_labels({"to": "TRUSTED"}, {"to": "b'ana@acme.com.br'"}, key, tool="send_email", caller=ANA)
         ctx = types.SimpleNamespace(method="tools/call", params={
             "name": "send_email", "arguments": {"to": b"ana@acme.com.br"}, "_meta": {META_KEY: signed}})
 
@@ -249,11 +249,11 @@ class McpLabelEdges(unittest.TestCase):
     def claim(self, *, iat, nonce, labels=None):
         import hashlib
         import hmac as _hmac
-        import json
+
+        from catraca.adapters.mcp import _signed_body
         labels = labels or {"to": "TRUSTED"}
-        body = json.dumps({"labels": labels, "args": self.ARGS, "tool": "send_email", "iat": iat, "nonce": nonce},
-                          sort_keys=True, separators=(",", ":")).encode("utf-8")
-        return {"labels": labels, "tool": "send_email", "iat": iat, "nonce": nonce,
+        body = _signed_body(labels, self.ARGS, "send_email", ANA, iat, nonce)
+        return {"v": 2, "labels": labels, "tool": "send_email", "iat": iat, "nonce": nonce,
                 "mac": _hmac.new(self.KEY, body, hashlib.sha256).hexdigest()}
 
     def call(self, claimed):
@@ -294,7 +294,7 @@ class McpLabelEdges(unittest.TestCase):
 
     def test_meta_as_an_object_or_under_meta(self):
         # Pydantic models expose _meta as `meta`, and as an object rather than a dict.
-        signed = sign_labels({"to": "TRUSTED"}, dict(self.ARGS), self.KEY, tool="send_email")
+        signed = sign_labels({"to": "TRUSTED"}, dict(self.ARGS), self.KEY, tool="send_email", caller=ANA)
         as_object = types.SimpleNamespace(**{META_KEY: signed})
         params = types.SimpleNamespace(name="send_email", arguments=dict(self.ARGS), _meta=None, meta=as_object)
         self.assertEqual(self.run_mw(self.mw(), Ctx("tools/call", params)), "tool ran")

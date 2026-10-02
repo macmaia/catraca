@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Breaking
+- Signed MCP labels name the caller. `sign_labels` needs `caller=`, with the tenant and user the server will resolve (for the proxy, its `--tenant` and `--user`). Labels signed by 0.2.x clients are refused. Update the client.
+- `LabelChecker.edges` needs `caller=`.
+
+### Security
+- A label signed for one caller was accepted for another caller sharing the same key, once, within its 5-minute window. Labels are now bound to the caller.
+
+### Added
+- `derive_label_key(master, tenant)`: one label key per tenant from one master key (HKDF-SHA256).
+
 ### Fixed
 - `catraca-mcp-proxy` refuses NaN and Infinity, and refuses a label key shorter than 16 bytes at start-up instead of failing later.
 

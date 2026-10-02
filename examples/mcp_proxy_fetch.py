@@ -21,6 +21,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from catraca import Caller
 from catraca.adapters.mcp import META_KEY, sign_labels
 from examples._common import check
 
@@ -50,7 +51,7 @@ async def main() -> None:
 
         def signed(args):
             return {META_KEY: sign_labels({k: "TRUSTED" if k == "url" else "UNTRUSTED" for k in args}, args, KEY,
-                                          tool="fetch")}
+                                          tool="fetch", caller=Caller("acme", "agent"))}
 
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:

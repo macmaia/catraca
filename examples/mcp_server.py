@@ -34,7 +34,8 @@ def main() -> None:
                                      params={"name": "send_email", "arguments": args, "_meta": meta or {}})
 
     args = {"to": "ana@acme.com.br", "body": "hi"}
-    signed = {META_KEY: sign_labels({"to": "TRUSTED", "body": "UNTRUSTED"}, args, KEY, tool="send_email")}
+    signed = {META_KEY: sign_labels({"to": "TRUSTED", "body": "UNTRUSTED"}, args, KEY, tool="send_email",
+                                   caller=Caller("acme", "svc"))}
     check(asyncio.run(mw(ctx(args, signed), call_next)) == "tool ran", "signed trusted recipient goes through")
     try:
         asyncio.run(mw(ctx(args), call_next))

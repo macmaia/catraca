@@ -14,11 +14,13 @@ ways to loosen, both explicit:
 
 * ``label_key=`` : a client running catraca signs its labels
   (``sign_labels``) and sends them in ``params._meta["catraca/labels"]``. The
-  server checks the HMAC, which covers the tool, the arg values, the time it was
-  signed (``max_age``, 300 s by default) and a nonce. Each nonce is accepted
-  once, so a captured call can't be sent again. That holds per process unless
-  the workers share a ``nonces=`` store. Bad, stale, replayed or missing
-  signature means UNTRUSTED.
+  server checks the HMAC, which covers the tool, the arg values, the caller
+  (tenant and user, as the server sees them), the time it was signed
+  (``max_age``, 300 s by default) and a nonce. Each nonce is accepted once, so
+  a captured call can't be sent again. That holds per process unless the
+  workers share a ``nonces=`` store. Bad, stale, replayed or missing signature,
+  or one made for another caller, means UNTRUSTED. Use one key per tenant
+  (``derive_label_key``) where you can.
 * ``trust_client=True`` : every arg counts as TRUSTED. Only for a client you
   fully control.
 
@@ -45,24 +47,42 @@ META_KEY = "catraca/labels"
 DENIED_CODE = -32001
 
 
-def sign_labels(labels: Mapping[str, str], args: Mapping[str, Any], key: bytes, *, tool: str,
+LABEL_FORMAT = 2  # 0.2.x labels had no version and no caller. They don't verify any more.
+
+
+def sign_labels(labels: Mapping[str, str], args: Mapping[str, Any], key: bytes, *, tool: str, caller: Caller,
                 issued_at: Optional[int] = None) -> dict:
     """Client side. ``labels`` maps arg name to integrity name. The signature
-    covers the tool name, the arg values, the time it was made and a fresh
-    nonce, so labels can't be moved onto other values or another tool, or
-    sent again."""
+    covers the tool name, the arg values, the caller the server will see, the
+    time it was made and a fresh nonce, so labels can't be moved onto other
+    values, another tool or another tenant or user, or sent again."""
+    if not isinstance(caller, Caller) or not isinstance(caller.tenant, str) or not isinstance(caller.user, str):
+        raise TypeError("caller must be a Caller with a str tenant and user.")
     iat = int(time.time()) if issued_at is None else int(issued_at)
     nonce = os.urandom(16).hex()
-    body = _signed_body(labels, args, tool, iat, nonce)
-    return {"labels": dict(labels), "tool": tool, "iat": iat, "nonce": nonce,
+    body = _signed_body(labels, args, tool, caller, iat, nonce)
+    return {"v": LABEL_FORMAT, "labels": dict(labels), "tool": tool, "iat": iat, "nonce": nonce,
             "mac": hmac.new(key, body, hashlib.sha256).hexdigest()}
 
 
-def _signed_body(labels: Mapping[str, str], args: Mapping[str, Any], tool: str, iat: int, nonce: str) -> bytes:
+def _signed_body(labels: Mapping[str, str], args: Mapping[str, Any], tool: str, caller: Caller, iat: int,
+                 nonce: str) -> bytes:
     # No default=repr: a value that isn't plain JSON can't be signed, so it
     # stays UNTRUSTED instead of colliding with its own string form.
-    return json.dumps({"labels": dict(labels), "args": args, "tool": tool, "iat": iat, "nonce": nonce},
+    return json.dumps({"v": LABEL_FORMAT, "labels": dict(labels), "args": args, "tool": tool,
+                       "caller": {"tenant": caller.tenant, "user": caller.user}, "iat": iat, "nonce": nonce},
                       sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def derive_label_key(master: bytes, tenant: str) -> bytes:
+    """A 32-byte label key for one tenant, from one master key (HKDF-SHA256,
+    RFC 5869, empty salt). A key that leaks then only covers its own tenant."""
+    if len(master) < 16:
+        raise ValueError("master must be at least 16 bytes.")
+    if not isinstance(tenant, str) or not tenant:
+        raise ValueError("tenant must be a non-empty str.")
+    prk = hmac.new(b"", master, hashlib.sha256).digest()  # empty salt, same as 32 zero bytes in HMAC
+    return hmac.new(prk, b"catraca/labels/" + tenant.encode("utf-8") + b"\x01", hashlib.sha256).digest()
 
 
 class NonceStore(Protocol):
@@ -147,25 +167,30 @@ class LabelChecker:
         self._max_age = max_age
         self._seen: NonceStore = nonces if nonces is not None else MemoryNonces()
 
-    def edges(self, tool: str, args: Mapping[str, Any], meta: Mapping[str, Any]) -> Dict[str, EdgeLabel]:
+    def edges(self, tool: str, args: Mapping[str, Any], meta: Mapping[str, Any], *,
+              caller: Optional[Caller]) -> Dict[str, EdgeLabel]:
+        """``tool`` and ``caller`` are what the server is about to run and for
+        whom, never what the label claims."""
         if self._trust_client:
             return {k: EdgeLabel(Label(Integrity.TRUSTED), "mcp-client") for k in args}
         claimed = meta.get(META_KEY) if self._key is not None else None
         ok = False
-        if isinstance(claimed, Mapping) and isinstance(claimed.get("labels"), Mapping) \
+        # True == 1, so a bool can't pass for LABEL_FORMAT (2).
+        if isinstance(caller, Caller) and isinstance(claimed, Mapping) and claimed.get("v") == LABEL_FORMAT \
+                and isinstance(claimed.get("labels"), Mapping) \
                 and isinstance(claimed.get("iat"), int) and not isinstance(claimed.get("iat"), bool) \
                 and isinstance(claimed.get("nonce"), str) and len(claimed["nonce"]) >= 16:
             iat = claimed["iat"]
             fresh = -30 <= time.time() - iat <= self._max_age  # 30 s of clock skew the other way
             try:
-                body = _signed_body(claimed["labels"], args, tool, iat, claimed["nonce"])
+                body = _signed_body(claimed["labels"], args, tool, caller, iat, claimed["nonce"])
             except (TypeError, ValueError):
                 body = None  # not plain JSON, can't have been signed
-            if body is not None and self._key is not None:
+            if body is not None and self._key is not None:  # pragma: no mutate  equivalent: key is set here
                 want = hmac.new(self._key, body, hashlib.sha256).hexdigest()
                 # Check the nonce last, so only a valid, fresh signature uses it up.
                 ok = fresh and hmac.compare_digest(want, str(claimed.get("mac", ""))) \
-                    and self._seen.first_use(claimed["nonce"], self._max_age + 60)
+                    and self._seen.first_use(claimed["nonce"], self._max_age + 60)  # pragma: no mutate  equivalent: any margin over 30 s
         signed: Mapping[str, Any] = claimed["labels"] if ok and isinstance(claimed, Mapping) else {}
         out = {}
         for k in args:
@@ -189,7 +214,9 @@ def catraca_middleware(gate: Gate, *, caller_for: Callable[[Any], Caller], label
         if call is None:
             return await call_next(ctx)
         tool, args, meta = call
-        decision = await gate.adecide(tool, args, caller=caller_for(ctx), labels=checker.edges(tool, args, meta))
+        caller = caller_for(ctx)  # once, so the labels and the gate see the same caller
+        decision = await gate.adecide(tool, args, caller=caller,
+                                      labels=checker.edges(tool, args, meta, caller=caller))
         if decision.verdict is not Verdict.ALLOW:
             raise error(f"catraca: {decision.reason.value} ({decision.rule_id})")
         return await call_next(ctx)

@@ -14,8 +14,8 @@ message, refuses one with duplicate keys, and sends the server its own
 re-encoding, so the server can't read a different call from the same bytes.
 
 Like the middleware, a proxy can't see the agent's context, so every arg is
-UNTRUSTED unless the client signs its labels (``--label-key-env``) or you pass
-``--trust-client``. Only the stdio transport is covered.
+UNTRUSTED unless the client signs its labels (``--label-key-env``, signed for
+the ``--tenant`` and ``--user`` given here) or you pass ``--trust-client``. Only the stdio transport is covered.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ class McpProxy:
         if not isinstance(args, dict) or not isinstance(meta, dict):
             return "catraca: refused, malformed tools/call"
         tool = params["name"]
-        decision = self._gate.decide(tool, args, caller=self._caller, labels=self._labels.edges(tool, args, meta))
+        decision = self._gate.decide(tool, args, caller=self._caller, labels=self._labels.edges(tool, args, meta, caller=self._caller))
         if decision.verdict is not Verdict.ALLOW:
             return f"catraca: {decision.reason.value} ({decision.rule_id})"
         return None

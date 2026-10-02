@@ -33,7 +33,8 @@ def call(i, to, meta=None):
 
 def signed(i, to):
     args = {"to": to, "body": "hi"}
-    return call(i, to, {META_KEY: sign_labels({"to": "TRUSTED", "body": "UNTRUSTED"}, args, KEY, tool="send_email")})
+    return call(i, to, {META_KEY: sign_labels({"to": "TRUSTED", "body": "UNTRUSTED"}, args, KEY, tool="send_email",
+                                       caller=Caller("acme", "agent"))})
 
 
 class ThirdPartyServer(unittest.TestCase):
