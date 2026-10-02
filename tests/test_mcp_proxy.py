@@ -173,6 +173,38 @@ class Robustness(unittest.TestCase):
         self.assertTrue(any(r.get("id") == 2 and "result" in r for r in replies))
 
 
+
+class Limits(unittest.TestCase):
+    def test_message_size_limit_is_inclusive(self):
+        from catraca.adapters.mcp_proxy import MAX_LINE
+        head, tail = '{"jsonrpc":"2.0","id":1,"method":"ping","x":"', '"}'
+        at_limit = head + "a" * (MAX_LINE - len(head) - len(tail)) + tail
+        p = proxy(trust_client=True)
+        forward, reply = p.from_client(at_limit)
+        self.assertIsNotNone(forward)
+        forward, reply = p.from_client(at_limit[:-2] + 'a"}')
+        self.assertIsNone(forward)
+        self.assertEqual(json.loads(reply)["error"]["code"], -32600)
+
+    def test_bad_json_is_a_parse_error(self):
+        forward, reply = proxy().from_client("{nope")
+        self.assertEqual(json.loads(reply)["error"]["code"], -32700)
+
+    def test_a_batch_without_tool_calls_goes_through(self):
+        batch = [{"jsonrpc": "2.0", "id": 1, "method": "ping"}, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}]
+        forward, reply = proxy().from_client(json.dumps(batch))
+        self.assertIsNone(reply)
+        self.assertEqual(json.loads(forward), batch)
+
+    def test_malformed_tool_calls_are_refused(self):
+        p = proxy(label_key=KEY)
+        for params in ([], {"arguments": {}}, {"name": 5},
+                       {"name": "send_email", "arguments": {"to": "ana@acme.com.br"}, "_meta": []}):
+            msg = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params}
+            forward, reply = p.from_client(json.dumps(msg))
+            self.assertIsNone(forward, params)
+            self.assertEqual(json.loads(reply)["error"]["code"], -32001, params)
+
 class Cli(unittest.TestCase):
     def test_needs_a_decision_log_or_an_explicit_no(self):
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:

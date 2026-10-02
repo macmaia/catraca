@@ -358,3 +358,37 @@ class Observability(unittest.TestCase):
         with self.assertLogs("catraca", level="ERROR"):
             d = gate.decide("send_email", {"to": "ana@acme.com.br", "body": "x"}, caller=ANA)
         self.assertIs(d.verdict, Verdict.ALLOW)
+
+
+class ModeARecords(unittest.TestCase):
+    """What a mode A decision records per arg (docs/reference.md, the evidence record)."""
+
+    def decide(self, labels, args):
+        from catraca import Caller, DeclarativePolicy, EdgeLabel, Egress, EvidenceLog, Gate, Label, MemorySink
+        from catraca.labels import Integrity
+        policy = DeclarativePolicy.from_dict({"version": 1, "tools": {"send_email": {
+            "callers": {"tenants": ["acme"], "users": "*"}, "args": {"to": {}, "body": {"integrity": "ANY"}}}}})
+        sink = MemorySink()
+        gate = Gate(None, policy, egress=Egress.from_dict({"version": 1, "default": {"emails": ["@acme.com.br"]}}),
+                    evidence=EvidenceLog(sink))
+        edges = {k: EdgeLabel(Label(Integrity[v]), origin) for k, (v, origin) in labels.items()}
+        d = gate.decide("send_email", args, caller=Caller("acme", "ana"), labels=edges)
+        return d, {a["name"]: a for a in sink.last()["args"]}
+
+    def test_trusted_and_untrusted_edges_are_recorded_as_such(self):
+        d, rec = self.decide({"to": ("TRUSTED", "plan"), "body": ("UNTRUSTED", "step:0")},
+                             {"to": "ana@acme.com.br", "body": "summary"})
+        self.assertEqual(d.verdict.name, "ALLOW")
+        self.assertEqual((rec["to"]["coverage"], rec["to"]["trusted_origins"]), (1.0, ["plan"]))
+        self.assertEqual((rec["body"]["coverage"], rec["body"]["trusted_origins"]), (0.0, []))
+        self.assertEqual(rec["body"]["origins"], ["step:0"])
+        self.assertTrue(rec["to"]["consequential"])
+        self.assertFalse(rec["body"]["consequential"])
+
+    def test_every_arg_needs_exactly_one_edge(self):
+        # A missing or extra edge is a bug in the caller, and the gate fails closed.
+        d, _ = self.decide({"to": ("TRUSTED", "plan")}, {"to": "ana@acme.com.br", "body": "x"})
+        self.assertEqual(d.verdict.name, "DENY")
+        d, _ = self.decide({"to": ("TRUSTED", "plan"), "body": ("TRUSTED", "plan"), "cc": ("TRUSTED", "plan")},
+                           {"to": "ana@acme.com.br", "body": "x"})
+        self.assertEqual(d.verdict.name, "DENY")

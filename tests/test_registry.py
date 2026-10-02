@@ -710,3 +710,49 @@ class GroupedNumbersMatchLikeTokens(unittest.TestCase):
 
     def test_words_dont_fuse_into_a_mostly_numeric_value(self):
         self.assertFalse(self.trusted("bob at example com", "bobatexamplecom"))
+
+
+class StateChecks(unittest.TestCase):
+    KEY = b"k" * 32
+
+    def state(self, **changes):
+        from catraca.registry import _state_mac
+        st = ContextRegistry(CFG).export_state(key=self.KEY)
+        st.pop("mac")
+        st.update(changes)
+        st["mac"] = _state_mac(self.KEY, st)
+        return st
+
+    def load(self, st, **kw):
+        return ContextRegistry.from_state(CFG, st, key=self.KEY, **kw)
+
+    def test_only_version_1_and_only_mappings(self):
+        with self.assertRaises(RegistryError):
+            self.load(self.state(version=2))
+        with self.assertRaises(RegistryError):
+            ContextRegistry.from_state(CFG, [], trust_unsigned=True)
+
+    def test_generation_must_be_a_whole_number_even_without_min_generation(self):
+        with self.assertRaises(RegistryError):
+            self.load(self.state(generation="5"))
+
+    def test_a_state_without_generation_starts_counting_from_one(self):
+        st = self.state()
+        del st["generation"]
+        from catraca.registry import _state_mac
+        st.pop("mac")
+        st["mac"] = _state_mac(self.KEY, st)
+        self.assertEqual(self.load(st).export_state()["generation"], 1)
+
+    def test_max_age_edges(self):
+        from unittest import mock
+        st = self.state(saved_at=1000)
+        with mock.patch("catraca.registry.time.time", return_value=1060):
+            self.load(st, max_age=60)
+            with self.assertRaises(RegistryError):
+                self.load(st, max_age=59)
+        with mock.patch("catraca.registry.time.time", return_value=970):
+            self.load(st, max_age=60)
+        with mock.patch("catraca.registry.time.time", return_value=969):
+            with self.assertRaises(RegistryError):
+                self.load(st, max_age=60)

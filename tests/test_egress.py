@@ -452,3 +452,29 @@ class NothingSlipsPast(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScanCoverage(unittest.TestCase):
+    """Every destination in a value is found, and nothing that isn't one."""
+
+    def hosts(self, value):
+        from catraca.egress import extract
+        return {t.host for t in extract("body", value)}
+
+    def test_cap_is_64_then_unknown(self):
+        from catraca.egress import UNKNOWN_HOST
+        at_cap = " ".join(f"u{i}@h{i}.example" for i in range(64))
+        self.assertNotIn(UNKNOWN_HOST, self.hosts(at_cap))
+        over = at_cap + " u64@h64.example"
+        self.assertIn(UNKNOWN_HOST, self.hosts(over))
+
+    def test_an_email_after_one_inside_a_url_is_still_found(self):
+        self.assertIn("evil2.example", self.hosts("see https://ok.example/?to=a@evil.example then b@evil2.example"))
+
+    def test_a_url_after_one_inside_another_url_is_still_found(self):
+        hosts = self.hosts("https://ok.example/?next=https://evil.example and https://evil2.example/x")
+        self.assertIn("evil.example", hosts)
+        self.assertIn("evil2.example", hosts)
+
+    def test_a_file_name_in_a_url_path_isnt_a_host(self):
+        self.assertEqual(self.hosts("https://ok.example/docs/report.md"), {"ok.example"})

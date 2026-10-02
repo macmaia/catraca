@@ -374,3 +374,29 @@ class SettledByWindow(unittest.TestCase):
         g = gate(P(send_email=email()), USER_ASKS, DOC_SAYS)
         d = g.decide("send_email", {"to": "thief@evil.io", "body": "hi"}, caller=ANA)
         self.assertIs(d.reason, Reason.UNTRUSTED_ARGUMENT)
+
+
+class ArgRuleValidation(unittest.TestCase):
+    """A policy that says something odd is refused on load, never half-read."""
+
+    def load(self, spec):
+        return DeclarativePolicy.from_dict({"version": 1, "tools": {"t": {
+            "callers": {"tenants": ["acme"], "users": "*"}, "args": {"a": spec}}}})
+
+    def test_flow_to_must_be_a_list_of_strings(self):
+        for bad in ("tenant:{tenant}", ["tenant:{tenant}", 5]):
+            with self.assertRaises(ConfigError):
+                self.load({"flow_to": bad})
+
+    def test_pattern_must_be_a_non_empty_string(self):
+        for bad in ("", 5):
+            with self.assertRaises(ConfigError):
+                self.load({"pattern": bad})
+
+    def test_min_may_equal_max_but_not_exceed_it(self):
+        self.load({"type": "integer", "min": 3, "max": 3})
+        with self.assertRaises(ConfigError):
+            self.load({"type": "integer", "min": 4, "max": 3})
+        self.load({"type": "integer", "min": 0, "max": 0})
+        self.load({"type": "integer", "max": 3})
+        self.load({"type": "integer", "min": 3})
