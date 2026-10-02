@@ -14,6 +14,10 @@ Egress target hosts are kept in clear, because "where did it try to send this" i
 
 With the key, a digest can be linked back to a person: compute the digest of their id and look for it. So under LGPD and GDPR the log is still personal data (pseudonymised data, GDPR art. 4(5) and recital 26). Treat it that way: access control, retention, and a place in your records of processing.
 
+## Signed MCP labels
+
+A signed label binds the caller's tenant and user into its HMAC, but it doesn't carry them. The server checks the signature against the caller it resolved itself, so these identifiers don't travel in the call's `_meta`. Keep tenant and user ids opaque all the same (an internal id, never an email address, a CPF or a name): they reach the log, and the log is personal data.
+
 ## The key
 
 The default key is random per process. That's the safest setting for privacy (nothing links records across restarts), but it makes the log much less useful for audit:
@@ -73,6 +77,10 @@ Os hosts dos alvos de saída ficam em claro, porque "para onde tentou mandar" é
 ## Pseudonimizado, não anonimizado
 
 Com a chave, um digest pode ser ligado de volta a uma pessoa: calcule o digest do id dela e procure. Então, pela LGPD e pelo GDPR, o registro continua sendo dado pessoal (dado pseudonimizado, GDPR art. 4(5) e considerando 26). Trate assim: controle de acesso, retenção, e um lugar no seu registro das operações de tratamento.
+
+## Rótulos MCP assinados
+
+Um rótulo assinado prende o tenant e o usuário de quem chama ao seu HMAC, mas não os carrega. O servidor confere a assinatura contra o chamador que ele mesmo resolveu, então esses identificadores não viajam no `_meta` da chamada. Mesmo assim, use identificadores opacos para tenant e usuário (um id interno, nunca e-mail, CPF ou nome): eles chegam ao registro, e o registro é dado pessoal.
 
 ## A chave
 
