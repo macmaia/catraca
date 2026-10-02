@@ -130,7 +130,7 @@ jobs:
         # First full run (2 Oct 2026): 5758 of 8309 mutants killed, 69.3%. The floor sits a point below the
         # last green run, so timeouts and noise do not fail it, and only ever goes up.
         env:
-          FLOOR: "68.0"
+          FLOOR: "69.4"
         run: |
           python - <<'PY'
           import os, re, sys
