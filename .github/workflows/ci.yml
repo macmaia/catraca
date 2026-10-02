@@ -172,8 +172,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: curl -sSf -o tlds.txt https://data.iana.org/TLD/tlds-alpha-by-domain.txt
-      - run: python -m catraca.tlds check tlds.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      - run: curl -sSf --retry 3 -o tlds.txt https://data.iana.org/TLD/tlds-alpha-by-domain.txt
+      - name: Curated list matches IANA (fails on drift)
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m catraca.tlds check tlds.txt | tee -a "$GITHUB_STEP_SUMMARY"
 
   tarja:
     name: Redaction with the real Tarja

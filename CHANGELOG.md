@@ -14,7 +14,12 @@
 ### Added
 - `derive_label_key(master, tenant)`: one label key per tenant from one master key (HKDF-SHA256).
 
+### Changed
+- `cyber`, `hotel`, `pets`, `reports`, `server` and `silver` no longer count as TLDs in free text. They are not in the IANA root zone file (checked 2026-10-02).
+- `home`, `mail`, `facebook`, `icloud` and `mastercard` aren't in that file either, but still count (`RESERVED_OR_UNDELEGATED`): the first two are common internal names, the others are brands used as lures.
+
 ### Fixed
+- The weekly check of the TLD list against IANA could never fail. It does now.
 - `catraca-mcp-proxy` refuses NaN and Infinity, and refuses a label key shorter than 16 bytes at start-up instead of failing later.
 
 ## [0.2.0] - 2026-10-01

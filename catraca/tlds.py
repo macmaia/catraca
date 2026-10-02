@@ -10,6 +10,8 @@ extensions or code (``.py``, ``.md``, ``.sh``, ``.zip``, ``.name``), so:
   whole IANA root zone, and CI checks it against IANA so it doesn't drift
   (``python -m catraca.tlds check tlds-alpha-by-domain.txt``). You can also load
   the IANA file at runtime with ``load_iana()``.
+* Labels in ``RESERVED_OR_UNDELEGATED`` (``home``, ``mail``...) aren't in the
+  IANA file but still count, each with the reason and the date it was checked.
 * Labels in ``LOOKS_LIKE_A_FILE`` (``.py``, ``.md``, ``.zip``...) only count when
   there's a second sign it's a host: a path or query right after it, or a
   subdomain (three labels or more). ``script.py`` stays text,
@@ -20,32 +22,44 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import FrozenSet, Iterable, List, Optional, Union
+from typing import Dict, FrozenSet, Iterable, List, Optional, Union
 
 GENERIC: FrozenSet[str] = frozenset("""
 com net org edu gov mil int arpa info biz name pro aero asia cat coop jobs mobi museum post tel travel xxx
 io ai app dev xyz online site shop store tech cloud link click live top club page email example test invalid
 localhost onion blog news media digital network systems solutions services support agency company group
-global world today space website web host hosting server domains download download software codes tools
+global world today space website web host hosting domains download download software codes tools
 zone center city life love work works art design studio photo photos pics pictures video tube stream
 games game fun fan fans chat social community forum wiki review reviews guide guru expert academy school
 education college university institute training courses study science technology engineering finance
 financial bank money capital fund investments loan loans credit cash insure insurance tax accountant
 legal law lawyer attorney health care clinic doctor dental hospital fitness bio eco energy solar green
-gold silver diamonds jewelry fashion clothing shoes style beauty hair makeup spa luxury vip shopping
+gold diamonds jewelry fashion clothing shoes style beauty hair makeup spa luxury vip shopping
 market markets trade trading exchange deals sale discount coupons promo gift gifts cards casino bet poker
-lotto win party events tickets travel tours holiday vacations flights cruises hotel hotels rentals
-house home homes properties property realty estate land farm garden kitchen restaurant cafe
-bar pub pizza food recipes wine beer vodka coffee family kids baby dog pet pets vet horse
+lotto win party events tickets travel tours holiday vacations flights cruises hotels rentals
+house homes properties property realty estate land farm garden kitchen restaurant cafe
+bar pub pizza food recipes wine beer vodka coffee family kids baby dog pet vet horse
 auto autos car cars bike motorcycles taxi limo parts repair tires energy computer phone mobile
-cyber security safe secure protection audio radio tv film movie mov theater gallery graphics
+security safe secure protection audio radio tv film movie mov theater gallery graphics
 consulting management marketing partners ventures holdings industries enterprises international
-directory company email mail report reports report today one plus pro red blue black pink green
+directory company email report report today one plus pro red blue black pink green
 support help info tips how best cool fyi lol wtf rocks ninja zip foo meme page run icu cyou buzz monster
 rest cfd sbs quest bond skin hair lat cam bid win vip ltd llc inc gmbh srl sarl
-google gle goog youtube android chrome gmail microsoft azure windows office bing xbox skype apple icloud
-amazon aws prime kindle facebook netflix visa mastercard amex
+google gle goog youtube android chrome gmail microsoft azure windows office bing xbox skype apple
+amazon aws prime kindle netflix visa amex
 """.split())
+
+
+# Absent from the IANA root zone file but still counted as TLDs (the strict
+# reading). ``check`` skips them and says so if one turns up in IANA again.
+# Each reason states only what was checked.
+RESERVED_OR_UNDELEGATED: Dict[str, str] = {
+    "home": "absent from IANA tlds-alpha-by-domain.txt, checked 2026-10-02. Kept: common internal name.",
+    "mail": "absent from IANA tlds-alpha-by-domain.txt, checked 2026-10-02. Kept: common internal name.",
+    "facebook": "absent from IANA tlds-alpha-by-domain.txt, checked 2026-10-02. Kept: brand used as a lure.",
+    "icloud": "absent from IANA tlds-alpha-by-domain.txt, checked 2026-10-02. Kept: brand used as a lure.",
+    "mastercard": "absent from IANA tlds-alpha-by-domain.txt, checked 2026-10-02. Kept: brand used as a lure.",
+}
 
 LOOKS_LIKE_A_FILE: FrozenSet[str] = frozenset("""
 py md sh js ts rs rb pl go cs fs hs ml mk ps so cc
@@ -58,7 +72,7 @@ def is_tld(label: str, *, generic: FrozenSet[str] = GENERIC) -> bool:
     t = label.lower()
     if len(t) == 2 and t.isalpha():
         return True
-    return t in generic or t.startswith("xn--")
+    return t in generic or t in RESERVED_OR_UNDELEGATED or t.startswith("xn--")
 
 
 def counts_as_host(labels: Iterable[str], has_path: bool, *, generic: FrozenSet[str] = GENERIC) -> bool:
@@ -92,6 +106,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     covered = {t for t in longer if t in GENERIC}
     brand_or_niche = longer - covered
     stale = {t for t in GENERIC if t not in iana and t not in {"example", "test", "invalid", "localhost", "onion"}}
+    back = sorted(t for t in RESERVED_OR_UNDELEGATED if t in iana)
+    if back:
+        print("Kept as undelegated but now in IANA, move to GENERIC: " + ", ".join(back))
     print(f"IANA: {len(iana)} TLDs, {len(longer)} generic. Curated list covers {len(covered)}.")
     print(f"Not in the curated list (caught only with load_iana): {len(brand_or_niche)}")
     if stale:
