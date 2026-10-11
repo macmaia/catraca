@@ -113,7 +113,7 @@ class Middleware(unittest.TestCase):
             self.run_mw(lambda ctx: Caller("globex", "ana"), signed(ACME_ANA))
 
     def test_caller_for_returning_none_never_runs_the_tool(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(PermissionError):
             self.run_mw(lambda ctx: None, signed(ACME_ANA))
 
     def test_caller_for_raising_never_runs_the_tool(self):

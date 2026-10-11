@@ -214,7 +214,9 @@ def catraca_middleware(gate: Gate, *, caller_for: Callable[[Any], Caller], label
         if call is None:
             return await call_next(ctx)
         tool, args, meta = call
-        caller = caller_for(ctx)  # once, so the labels and the gate see the same caller
+        caller: object = caller_for(ctx)  # once, so the labels and the gate see the same caller
+        if not isinstance(caller, Caller):
+            raise error("catraca: refused, no caller for this call")
         decision = await gate.adecide(tool, args, caller=caller,
                                       labels=checker.edges(tool, args, meta, caller=caller))
         if decision.verdict is not Verdict.ALLOW:
